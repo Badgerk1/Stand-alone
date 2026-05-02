@@ -1823,6 +1823,10 @@
             <label><span class="tooltip">Surface Probe Search Depth (mm)<span class="tip-icon">?</span><span class="tip">Minimum Z distance the Surface Reference Probe will search downward from the machine ceiling. Increase this to match your machine&#39;s full Z travel so the probe always reaches the workpiece even when work coordinates are not pre-set. Default: 200.</span></span></label>
             <input type="number" id="outlineSurfRefMaxPlunge" value="200" step="10" min="10">
           </div>
+          <div class="field">
+            <label><span class="tooltip">Machine Z Travel (mm)<span class="tip-icon">?</span><span class="tip">Total Z-axis travel of your machine (from home/ceiling to maximum downward position). Used to cap the Phase 1 Surface Reference Probe search depth to travel&#8722;5 mm so soft-limit alarms are avoided. Default: 165.</span></span></label>
+            <input type="number" id="outlineMachineZTravel" value="165" step="1" min="10">
+          </div>
           <div class="field" style="grid-column:1 / -1">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
               <input type="checkbox" id="outlineSkipSurfaceProbe" style="width:auto;margin:0">
@@ -11167,6 +11171,7 @@ function _outlineSettings() {
     clearZ:            gn('outlineClearZ',           5),
     probeDown:         gn('outlineProbeDown',        5),
     surfRefMaxPlunge:  Math.max(10, gn('outlineSurfRefMaxPlunge', 200)), // ≥10 mm — prevent ALARM:5 from too-short surface probe search depth
+    machineZTravel:    Math.max(10, gn('outlineMachineZTravel',  165)), // total machine Z travel (mm) — used to clamp Phase 1 plunge
     skipSurfaceProbe:  gb('outlineSkipSurfaceProbe'),
     forceRectangle:    gb('outlineForceRectangle')
   };
@@ -11318,6 +11323,15 @@ async function runOutlineSurfaceProbe() {
       // At machine ceiling with work Z near 0 — work coordinates not set up properly.
       // Use surfRefMaxPlunge as the safe probe distance (controller knows its limits).
       fullPlunge = cfg.surfRefMaxPlunge;
+      // Clamp to machineZTravel - 5 mm to avoid soft-limit alarms (ALARM:2).
+      var allowedMax = Math.max(10, cfg.machineZTravel - 5);
+      if (fullPlunge > allowedMax) {
+        var clampMsg = 'PROBE: clamping plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMax.toFixed(3) +
+          ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
+        outlineAppendLog(clampMsg);
+        smLogProbe('OUTLINE: ' + clampMsg);
+        fullPlunge = allowedMax;
+      }
       outlineAppendLog('PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
       smLogProbe('OUTLINE: PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
@@ -13476,6 +13490,7 @@ function getSettingsFromUI() {
     outlineClearZ:               n('outlineClearZ'),
     outlineProbeDown:            n('outlineProbeDown'),
     outlineSurfRefMaxPlunge:     n('outlineSurfRefMaxPlunge'),
+    outlineMachineZTravel:       n('outlineMachineZTravel'),
     outlineGridSource:           s('outlineGridSource'),
     outlineGridMargin:           n('outlineGridMargin'),
     outlineGridEdgeMarginMm:     n('outlineGridEdgeMarginMm'),
@@ -13673,6 +13688,10 @@ function loadSettings() {
     }
   }
   if (data.outlineGridSource  != null) sv('outlineGridSource',  data.outlineGridSource);
+  if (data.outlineMachineZTravel != null) {
+    var _mzt = Math.max(10, Number(data.outlineMachineZTravel));
+    sv('outlineMachineZTravel', isFinite(_mzt) ? _mzt : 165);
+  }
   if (data.outlineGridMargin  != null) sv('outlineGridMargin',  data.outlineGridMargin);
   if (data.outlineGridEdgeMarginMm != null) sv('outlineGridEdgeMarginMm', data.outlineGridEdgeMarginMm);
   if (data.outlineGridSamplingMode != null) sv('outlineGridSamplingMode', data.outlineGridSamplingMode);
@@ -13727,6 +13746,7 @@ function resetSettings() {
     applyRefZ: 0, applySubdivide: true, applyFaceRefPos: 0, applyFaceAxis: 'Y', applyFaceUniform: true,
     // Outline tab
     outlineSkipSurfaceProbe: false,
+    outlineMachineZTravel: 165,
     outlineGridEdgeMarginMm: 2,
     autoHideStatusPanel: false
   };
@@ -13824,6 +13844,7 @@ function resetSettings() {
   sc('apply-face-uniform',         defaults.applyFaceUniform);
   // Outline tab
   sc('outlineSkipSurfaceProbe',    defaults.outlineSkipSurfaceProbe);
+  sv('outlineMachineZTravel',      defaults.outlineMachineZTravel);
   sv('outlineGridEdgeMarginMm',    defaults.outlineGridEdgeMarginMm);
   sc('autoHideStatusPanel',        defaults.autoHideStatusPanel);
   try { refreshFinishBehaviorPreview(); } catch(e) {}

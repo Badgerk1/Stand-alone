@@ -125,6 +125,7 @@ function getSettingsFromUI() {
     outlineClearZ:               n('outlineClearZ'),
     outlineProbeDown:            n('outlineProbeDown'),
     outlineSurfRefMaxPlunge:     n('outlineSurfRefMaxPlunge'),
+    outlineMachineZTravel:       n('outlineMachineZTravel'),
     outlineGridSource:           s('outlineGridSource'),
     outlineGridMargin:           n('outlineGridMargin'),
     outlineGridEdgeMarginMm:     n('outlineGridEdgeMarginMm'),
@@ -322,6 +323,10 @@ function loadSettings() {
     }
   }
   if (data.outlineGridSource  != null) sv('outlineGridSource',  data.outlineGridSource);
+  if (data.outlineMachineZTravel != null) {
+    var _mzt = Math.max(10, Number(data.outlineMachineZTravel));
+    sv('outlineMachineZTravel', isFinite(_mzt) ? _mzt : 165);
+  }
   if (data.outlineGridMargin  != null) sv('outlineGridMargin',  data.outlineGridMargin);
   if (data.outlineGridEdgeMarginMm != null) sv('outlineGridEdgeMarginMm', data.outlineGridEdgeMarginMm);
   if (data.outlineGridSamplingMode != null) sv('outlineGridSamplingMode', data.outlineGridSamplingMode);
@@ -376,6 +381,7 @@ function resetSettings() {
     applyRefZ: 0, applySubdivide: true, applyFaceRefPos: 0, applyFaceAxis: 'Y', applyFaceUniform: true,
     // Outline tab
     outlineSkipSurfaceProbe: false,
+    outlineMachineZTravel: 165,
     outlineGridEdgeMarginMm: 2,
     autoHideStatusPanel: false
   };
@@ -473,6 +479,7 @@ function resetSettings() {
   sc('apply-face-uniform',         defaults.applyFaceUniform);
   // Outline tab
   sc('outlineSkipSurfaceProbe',    defaults.outlineSkipSurfaceProbe);
+  sv('outlineMachineZTravel',      defaults.outlineMachineZTravel);
   sv('outlineGridEdgeMarginMm',    defaults.outlineGridEdgeMarginMm);
   sc('autoHideStatusPanel',        defaults.autoHideStatusPanel);
   try { refreshFinishBehaviorPreview(); } catch(e) {}

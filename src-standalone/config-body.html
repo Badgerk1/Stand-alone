@@ -1585,6 +1585,10 @@
             <label><span class="tooltip">Surface Probe Search Depth (mm)<span class="tip-icon">?</span><span class="tip">Minimum Z distance the Surface Reference Probe will search downward from the machine ceiling. Increase this to match your machine&#39;s full Z travel so the probe always reaches the workpiece even when work coordinates are not pre-set. Default: 200.</span></span></label>
             <input type="number" id="outlineSurfRefMaxPlunge" value="200" step="10" min="10">
           </div>
+          <div class="field">
+            <label><span class="tooltip">Machine Z Travel (mm)<span class="tip-icon">?</span><span class="tip">Total Z-axis travel of your machine (from home/ceiling to maximum downward position). Used to cap the Phase 1 Surface Reference Probe search depth to travel&#8722;5 mm so soft-limit alarms are avoided. Default: 165.</span></span></label>
+            <input type="number" id="outlineMachineZTravel" value="165" step="1" min="10">
+          </div>
           <div class="field" style="grid-column:1 / -1">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
               <input type="checkbox" id="outlineSkipSurfaceProbe" style="width:auto;margin:0">
