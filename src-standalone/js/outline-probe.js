@@ -485,7 +485,7 @@ async function _runRowScan(cfg, surfZ) {
       outlineAppendLog('SKIP SURFACE PROBE: LOWER Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var skipRightEdgePos = await _probeHorizEdge('X', xLeft - 1, cfg.faceFeed, safeTravelZ);
+      var skipRightEdgePos = await _probeHorizEdge('X', cfg.x0 - cfg.approachDist, cfg.faceFeed, safeTravelZ);
       if (skipRightEdgePos.probeTriggered) {
         xRight = skipRightEdgePos.x;
         outlineAppendLog('SKIP SURFACE PROBE: Row Y=' + rowY.toFixed(3) + ' Right edge TRIGGERED at X=' + xRight.toFixed(3) + ' Z=' + skipRightEdgePos.z.toFixed(3));
@@ -555,7 +555,7 @@ async function _runRowScan(cfg, surfZ) {
       outlineAppendLog('LOWER: Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var rightEdgePos = await _probeHorizEdge('X', xLeft - 1, cfg.faceFeed, safeTravelZ);
+      var rightEdgePos = await _probeHorizEdge('X', cfg.x0 - cfg.approachDist, cfg.faceFeed, safeTravelZ);
       if (rightEdgePos.probeTriggered) {
         xRight = rightEdgePos.x;
         outlineAppendLog('Row Y=' + rowY.toFixed(3) + ' Right edge TRIGGERED at X=' + xRight.toFixed(3) + ' Z=' + rightEdgePos.z.toFixed(3));
@@ -641,7 +641,7 @@ async function _runColScan(cfg, surfZ) {
       outlineAppendLog('SKIP SURFACE PROBE: LOWER Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var skipTopEdgePos = await _probeHorizEdge('Y', yBottom - 1, cfg.faceFeed, safeTravelZ);
+      var skipTopEdgePos = await _probeHorizEdge('Y', cfg.y0 - cfg.approachDist, cfg.faceFeed, safeTravelZ);
       if (skipTopEdgePos.probeTriggered) {
         yTop = skipTopEdgePos.y;
         outlineAppendLog('SKIP SURFACE PROBE: Col X=' + colX.toFixed(3) + ' Top edge TRIGGERED at Y=' + yTop.toFixed(3) + ' Z=' + skipTopEdgePos.z.toFixed(3));
@@ -711,7 +711,7 @@ async function _runColScan(cfg, surfZ) {
       outlineAppendLog('LOWER: Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var topEdgePos = await _probeHorizEdge('Y', yBottom - 1, cfg.faceFeed, safeTravelZ);
+      var topEdgePos = await _probeHorizEdge('Y', cfg.y0 - cfg.approachDist, cfg.faceFeed, safeTravelZ);
       if (topEdgePos.probeTriggered) {
         yTop = topEdgePos.y;
         outlineAppendLog('Col X=' + colX.toFixed(3) + ' Top edge TRIGGERED at Y=' + yTop.toFixed(3) + ' Z=' + topEdgePos.z.toFixed(3));
@@ -771,6 +771,28 @@ async function runOutlineScan() {
     outlineAppendLog('Settings: ' + JSON.stringify(cfg, null, 0));
 
     await requireStartupHomingPreflight('Outline Scan');
+
+    // ── Preflight: validate current WPos is within configured outline bounds ──
+    // Bounds are G54 work coordinates; if WPos is far outside them the scan will
+    // travel to wrong absolute positions and may damage the probe or workpiece.
+    var _preflightPos = await getWorkPosition();
+    var PREFLIGHT_TOLERANCE_MM = 20; // extra margin beyond approach region before aborting
+    var _xMin = cfg.x0 - cfg.approachDist - PREFLIGHT_TOLERANCE_MM;
+    var _xMax = cfg.x0 + cfg.xLen + cfg.approachDist + PREFLIGHT_TOLERANCE_MM;
+    var _yMin = cfg.y0 - cfg.approachDist - PREFLIGHT_TOLERANCE_MM;
+    var _yMax = cfg.y0 + cfg.yLen + cfg.approachDist + PREFLIGHT_TOLERANCE_MM;
+    if (_preflightPos.x < _xMin || _preflightPos.x > _xMax ||
+        _preflightPos.y < _yMin || _preflightPos.y > _yMax) {
+      throw new Error(
+        'Current work position (X' + _preflightPos.x.toFixed(3) + ' Y' + _preflightPos.y.toFixed(3) + ') ' +
+        'is outside the configured outline bounds ' +
+        '(X' + cfg.x0.toFixed(3) + '\u2026' + (cfg.x0 + cfg.xLen).toFixed(3) +
+        ' Y' + cfg.y0.toFixed(3) + '\u2026' + (cfg.y0 + cfg.yLen).toFixed(3) + '). ' +
+        'Set your G54 work-coordinate origin so the scan area matches X0/Y0, ' +
+        'or adjust X Origin / Y Origin in Outline Search Bounds to match your current WCS position.'
+      );
+    }
+
     var safeTravelZ = surfZ + cfg.safeTravelZ;
     await smEnsureProbeClear(safeTravelZ, cfg.fastFeed);
 

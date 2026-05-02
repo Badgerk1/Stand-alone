@@ -1497,7 +1497,7 @@
         <div class="box-title">&#9711; Outline Search Bounds</div>
         <div class="grid three">
           <div class="field">
-            <label>X Origin (coords)</label>
+            <label><span class="tooltip">X Origin (coords)<span class="tip-icon">?</span><span class="tip">Left/near X boundary of the scan area in G54 work coordinates. Set your G54 origin so this value matches where the scan should start. The machine must be within this region when Outline Scan begins.</span></span></label>
             <input type="number" id="outlineX0" value="0" step="1" oninput="updateOutlineProbeCenter()">
           </div>
           <div class="field">
@@ -1510,7 +1510,7 @@
             <span id="outlineXStepHelper" class="mini" style="display:block;margin-top:3px">Computed step: —</span>
           </div>
           <div class="field">
-            <label>Y Origin (coords)</label>
+            <label><span class="tooltip">Y Origin (coords)<span class="tip-icon">?</span><span class="tip">Bottom/near Y boundary of the scan area in G54 work coordinates. Set your G54 origin so this value matches where the scan should start. The machine must be within this region when Outline Scan begins.</span></span></label>
             <input type="number" id="outlineY0" value="0" step="1" oninput="updateOutlineProbeCenter()">
           </div>
           <div class="field">
