@@ -41,11 +41,11 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
   if (!hdr) return;
   hdr.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
   hdr.innerHTML =
-    '<input id="ws-host" type="text" value="192.168.1.100" placeholder="Controller IP" title="Controller IP address" ' +
+    '<input id="ws-host" type="text" value="192.168.5.1" placeholder="Controller IP" title="Controller IP address" ' +
       'style="background:#131824;color:var(--text);border:1px solid var(--line);border-radius:6px;' +
              'padding:3px 6px;font-size:12px;width:120px">' +
     '<span style="font-size:12px;color:var(--muted)">:</span>' +
-    '<input id="ws-port" type="number" value="8090" min="1" max="65535" title="WebSocket port" ' +
+    '<input id="ws-port" type="number" value="81" min="1" max="65535" title="WebSocket port" ' +
       'style="background:#131824;color:var(--text);border:1px solid var(--line);border-radius:6px;' +
              'padding:3px 6px;font-size:12px;width:60px">' +
     '<button id="ws-connect-btn" onclick="wsToggleConnect()" ' +
@@ -99,7 +99,7 @@ async function wsToggleConnect() {
 
 function wsConnect() {
   var host = ((document.getElementById('ws-host') || {}).value || '').trim();
-  var port = Number((document.getElementById('ws-port') || {}).value) || 8090;
+  var port = Number((document.getElementById('ws-port') || {}).value) || 81;
   if (!host) {
     setFooterStatus('Enter the controller IP address before connecting.', 'bad');
     return;
