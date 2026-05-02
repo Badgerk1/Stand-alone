@@ -1820,12 +1820,20 @@
             <input type="number" id="outlineProbeDown" value="5" step="0.5" min="0.5">
           </div>
           <div class="field">
-            <label><span class="tooltip">Surface Probe Search Depth (mm)<span class="tip-icon">?</span><span class="tip">Minimum Z distance the Surface Reference Probe will search downward from the machine ceiling. Increase this to match your machine&#39;s full Z travel so the probe always reaches the workpiece even when work coordinates are not pre-set. Default: 200.</span></span></label>
-            <input type="number" id="outlineSurfRefMaxPlunge" value="200" step="10" min="10">
+            <label><span class="tooltip">Machine Z Travel (mm)<span class="tip-icon">?</span><span class="tip">Total Z-axis travel of your machine (from home/ceiling to maximum downward position). Used to cap the Phase 1 Surface Reference Probe search depth to travel&#8722;5 mm so soft-limit alarms are avoided. Default: 165.</span></span></label>
+            <input type="number" id="outlineMachineZTravel" value="165" step="1" min="10" oninput="outlineUpdateDepthModeUI()">
           </div>
           <div class="field">
-            <label><span class="tooltip">Machine Z Travel (mm)<span class="tip-icon">?</span><span class="tip">Total Z-axis travel of your machine (from home/ceiling to maximum downward position). Used to cap the Phase 1 Surface Reference Probe search depth to travel&#8722;5 mm so soft-limit alarms are avoided. Default: 165.</span></span></label>
-            <input type="number" id="outlineMachineZTravel" value="165" step="1" min="10">
+            <label><span class="tooltip">Surface Probe Search Depth<span class="tip-icon">?</span><span class="tip">Auto mode computes the effective search depth as Machine Z Travel &#8722; 5 mm (recommended for soft-limit safety). Custom lets you enter a specific depth, but it will still be clamped to travel&#8722;5.</span></span></label>
+            <select id="outlineSurfProbeDepthMode" onchange="outlineUpdateDepthModeUI()">
+              <option value="auto">Auto (recommended)</option>
+              <option value="custom">Custom</option>
+            </select>
+            <span id="outlineSurfProbeDepthHint" class="mini" style="display:block;margin-top:4px"></span>
+          </div>
+          <div class="field" id="outlineSurfRefMaxPlungeField">
+            <label><span class="tooltip">Custom Search Depth (mm)<span class="tip-icon">?</span><span class="tip">Minimum Z distance the Surface Reference Probe will search downward from the machine ceiling. Will be clamped to Machine Z Travel &#8722; 5 mm for safety.</span></span></label>
+            <input type="number" id="outlineSurfRefMaxPlunge" value="200" step="10" min="10">
           </div>
           <div class="field" style="grid-column:1 / -1">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1836,6 +1844,7 @@
         </div>
         <div class="btn-row" style="margin-top:10px">
           <button class="btn ghost" onclick="flashSaveButton(this);saveSettings()">&#128190; Save Settings</button>
+          <button class="btn ghost" onclick="outlineRunSetupWizard()" style="border-color:#845ef7;color:#c0aaf7">&#129497; Setup Wizard</button>
         </div>
       </div>
 
@@ -2008,6 +2017,30 @@
       </div>
 
     </div><!-- /pane-outline -->
+
+  <!-- ── OUTLINE SETUP WIZARD MODAL ───────────────────────────────────────── -->
+  <div id="outline-wizard-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99990;background:rgba(0,0,0,0.65);align-items:center;justify-content:center">
+    <div style="background:var(--panel,#171c26);border:1px solid var(--line,#2b3444);border-radius:14px;padding:22px 24px;width:min(440px,94vw);color:var(--text,#e8eef9);font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">&#129497; Outline Probe Setup Wizard</div>
+      <div style="color:var(--muted,#9aa8bf);font-size:12px;margin-bottom:16px">Enter your machine Z travel once and the app will automatically compute a safe surface probe depth.</div>
+      <div class="field" style="margin-bottom:14px">
+        <label style="color:var(--muted,#9aa8bf);display:block;margin-bottom:5px">Machine Z Travel (mm)</label>
+        <input type="number" id="wizard-z-travel" value="165" step="1" min="10" style="width:100%;border:1px solid var(--line,#2b3444);background:var(--panel2,#1c2330);color:var(--text,#e8eef9);border-radius:10px;padding:10px;font:inherit" oninput="outlineWizardUpdateHint()">
+        <span id="wizard-hint" style="display:block;margin-top:5px;font-size:11px;color:var(--accent,#6ea8ff)"></span>
+      </div>
+      <div class="field" style="margin-bottom:18px">
+        <label style="color:var(--muted,#9aa8bf);display:block;margin-bottom:5px">Surface Probe Depth Mode</label>
+        <select id="wizard-depth-mode" style="width:100%;border:1px solid var(--line,#2b3444);background:var(--panel2,#1c2330);color:var(--text,#e8eef9);border-radius:10px;padding:10px;font:inherit">
+          <option value="auto" selected>Auto (recommended) &#8212; uses Z Travel &#8722; 5 mm</option>
+          <option value="custom">Custom &#8212; enter depth manually</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn ghost" onclick="outlineCloseSetupWizard()" style="padding:8px 16px">Cancel</button>
+        <button class="btn" onclick="outlineSaveSetupWizard()" style="padding:8px 16px;background:linear-gradient(180deg,#845ef7,#6b44e0);border-color:#a486f9">Save &amp; Continue</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── FOOTER ─────────────────────────────────────────────────────────── -->
   <div class="footer">
@@ -11172,6 +11205,7 @@ function _outlineSettings() {
     probeDown:         gn('outlineProbeDown',        5),
     surfRefMaxPlunge:  Math.max(10, gn('outlineSurfRefMaxPlunge', 200)), // ≥10 mm — prevent ALARM:5 from too-short surface probe search depth
     machineZTravel:    Math.max(10, gn('outlineMachineZTravel',  165)), // total machine Z travel (mm) — used to clamp Phase 1 plunge
+    surfProbeDepthMode: (function() { var el = document.getElementById('outlineSurfProbeDepthMode'); return (el && el.value === 'custom') ? 'custom' : 'auto'; })(),
     skipSurfaceProbe:  gb('outlineSkipSurfaceProbe'),
     forceRectangle:    gb('outlineForceRectangle')
   };
@@ -11321,16 +11355,23 @@ async function runOutlineSurfaceProbe() {
 
     if (atMachineCeiling && Math.abs(pos.z) < 1) {
       // At machine ceiling with work Z near 0 — work coordinates not set up properly.
-      // Use surfRefMaxPlunge as the safe probe distance (controller knows its limits).
-      fullPlunge = cfg.surfRefMaxPlunge;
-      // Clamp to machineZTravel - 5 mm to avoid soft-limit alarms (ALARM:2).
+      // Compute effective plunge based on depth mode.
       var allowedMax = Math.max(10, cfg.machineZTravel - 5);
-      if (fullPlunge > allowedMax) {
-        var clampMsg = 'PROBE: clamping plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMax.toFixed(3) +
-          ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
-        outlineAppendLog(clampMsg);
-        smLogProbe('OUTLINE: ' + clampMsg);
+      if (cfg.surfProbeDepthMode === 'auto') {
+        // Auto: use machineZTravel - 5 directly
         fullPlunge = allowedMax;
+        outlineAppendLog('PROBE: Auto depth mode — using machineZTravel(' + cfg.machineZTravel.toFixed(0) + ') - 5 = ' + fullPlunge.toFixed(3) + ' mm');
+        smLogProbe('OUTLINE: PROBE: Auto depth mode — effective plunge=' + fullPlunge.toFixed(3) + ' mm');
+      } else {
+        // Custom: use stored surfRefMaxPlunge, still clamped to allowedMax for safety
+        fullPlunge = cfg.surfRefMaxPlunge;
+        if (fullPlunge > allowedMax) {
+          var clampMsg = 'PROBE: clamping custom plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMax.toFixed(3) +
+            ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
+          outlineAppendLog(clampMsg);
+          smLogProbe('OUTLINE: ' + clampMsg);
+          fullPlunge = allowedMax;
+        }
       }
       outlineAppendLog('PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
@@ -13249,6 +13290,92 @@ function exportOutlineJSON() {
   saveTextFile('outline_data_' + tsForFilename() + '.json', JSON.stringify(payload, null, 2));
   outlineAppendLog('Outline data exported as JSON.');
 }
+
+// ── Depth mode UI helpers ─────────────────────────────────
+/**
+ * outlineUpdateDepthModeUI()
+ * Called on mode-select change and after settings load.
+ * Shows/hides the custom depth field and updates the auto hint text.
+ */
+function outlineUpdateDepthModeUI() {
+  var modeEl   = document.getElementById('outlineSurfProbeDepthMode');
+  var fieldEl  = document.getElementById('outlineSurfRefMaxPlungeField');
+  var hintEl   = document.getElementById('outlineSurfProbeDepthHint');
+  var travelEl = document.getElementById('outlineMachineZTravel');
+  if (!modeEl) return;
+  var mode   = modeEl.value;
+  var travel = travelEl ? Math.max(10, Number(travelEl.value) || 165) : 165;
+  var auto   = Math.max(10, travel - 5);
+  if (fieldEl) fieldEl.style.display = (mode === 'custom') ? '' : 'none';
+  if (hintEl) {
+    if (mode === 'auto') {
+      hintEl.textContent = 'Auto: ' + travel.toFixed(0) + ' \u2212 5 = ' + auto.toFixed(0) + ' mm (effective search depth)';
+      hintEl.style.color = 'var(--accent,#6ea8ff)';
+    } else {
+      hintEl.textContent = 'Will be clamped to \u2264 ' + auto.toFixed(0) + ' mm (' + travel.toFixed(0) + ' \u2212 5) for safety';
+      hintEl.style.color = 'var(--warn,#f0b35c)';
+    }
+  }
+}
+
+// ── Setup Wizard ──────────────────────────────────────────
+function outlineWizardUpdateHint() {
+  var travelEl = document.getElementById('wizard-z-travel');
+  var hintEl   = document.getElementById('wizard-hint');
+  if (!travelEl || !hintEl) return;
+  var travel = Math.max(10, Number(travelEl.value) || 165);
+  hintEl.textContent = 'Auto depth will be: ' + travel.toFixed(0) + ' \u2212 5 = ' + Math.max(10, travel - 5).toFixed(0) + ' mm';
+}
+
+function outlineRunSetupWizard() {
+  var overlay = document.getElementById('outline-wizard-overlay');
+  if (!overlay) return;
+  // Pre-fill wizard with current Machine Z Travel value
+  var travelEl = document.getElementById('outlineMachineZTravel');
+  var wizTravel = document.getElementById('wizard-z-travel');
+  if (travelEl && wizTravel) wizTravel.value = travelEl.value || '165';
+  // Pre-fill mode
+  var modeEl = document.getElementById('outlineSurfProbeDepthMode');
+  var wizMode = document.getElementById('wizard-depth-mode');
+  if (modeEl && wizMode) wizMode.value = modeEl.value || 'auto';
+  outlineWizardUpdateHint();
+  overlay.style.display = 'flex';
+}
+
+function outlineCloseSetupWizard() {
+  var overlay = document.getElementById('outline-wizard-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function outlineSaveSetupWizard() {
+  var wizTravel = document.getElementById('wizard-z-travel');
+  var wizMode   = document.getElementById('wizard-depth-mode');
+  var travelEl  = document.getElementById('outlineMachineZTravel');
+  var modeEl    = document.getElementById('outlineSurfProbeDepthMode');
+  if (wizTravel && travelEl) travelEl.value = wizTravel.value;
+  if (wizMode   && modeEl  ) modeEl.value   = wizMode.value;
+  outlineUpdateDepthModeUI();
+  try { saveSettings(); } catch(e) {}
+  outlineCloseSetupWizard();
+}
+
+// Check on load: if Machine Z Travel is at default (unset) prompt wizard
+(function _outlineWizardInit() {
+  function _check() {
+    try {
+      var raw = localStorage.getItem(typeof SM_SETTINGS_KEY !== 'undefined' ? SM_SETTINGS_KEY : 'smSettings');
+      if (!raw) { outlineRunSetupWizard(); return; }
+      var data = JSON.parse(raw);
+      if (data.outlineMachineZTravel == null) { outlineRunSetupWizard(); }
+    } catch(e) {}
+    outlineUpdateDepthModeUI();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _check);
+  } else {
+    _check();
+  }
+})();
 // ── getMaxMeasuredSurfaceZ: find the highest Z across all probe data sources ───
 //
 // Returns the maximum measured surface Z value from any available probe data:
@@ -13490,6 +13617,7 @@ function getSettingsFromUI() {
     outlineClearZ:               n('outlineClearZ'),
     outlineProbeDown:            n('outlineProbeDown'),
     outlineSurfRefMaxPlunge:     n('outlineSurfRefMaxPlunge'),
+    outlineSurfProbeDepthMode:   s('outlineSurfProbeDepthMode'),
     outlineMachineZTravel:       n('outlineMachineZTravel'),
     outlineGridSource:           s('outlineGridSource'),
     outlineGridMargin:           n('outlineGridMargin'),
@@ -13687,6 +13815,9 @@ function loadSettings() {
       sv('outlineSurfRefMaxPlunge', _srmp);
     }
   }
+  // Migration B: if no mode stored (existing users), default to 'auto'.
+  var _mode = (data.outlineSurfProbeDepthMode === 'custom') ? 'custom' : 'auto';
+  sv('outlineSurfProbeDepthMode', _mode);
   if (data.outlineGridSource  != null) sv('outlineGridSource',  data.outlineGridSource);
   if (data.outlineMachineZTravel != null) {
     var _mzt = Math.max(10, Number(data.outlineMachineZTravel));
@@ -13708,6 +13839,7 @@ function loadSettings() {
   try { calcProbeAutoTotalLength(); } catch(e) {}
   try { updateOutlineCountHelpers(); } catch(e) {}
   try { updateOutlineGridCountHelpers(); } catch(e) {}
+  try { outlineUpdateDepthModeUI(); } catch(e) {}
 }
 function resetSettings() {
   var defaults = {
