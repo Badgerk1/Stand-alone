@@ -80,6 +80,7 @@ function _outlineSettings() {
     clearZ:            gn('outlineClearZ',           5),
     probeDown:         gn('outlineProbeDown',        5),
     surfRefMaxPlunge:  Math.max(10, gn('outlineSurfRefMaxPlunge', 200)), // ≥10 mm — prevent ALARM:5 from too-short surface probe search depth
+    machineZTravel:    Math.max(10, gn('outlineMachineZTravel',  165)), // total machine Z travel (mm) — used to clamp Phase 1 plunge
     skipSurfaceProbe:  gb('outlineSkipSurfaceProbe'),
     forceRectangle:    gb('outlineForceRectangle')
   };
@@ -231,6 +232,15 @@ async function runOutlineSurfaceProbe() {
       // At machine ceiling with work Z near 0 — work coordinates not set up properly.
       // Use surfRefMaxPlunge as the safe probe distance (controller knows its limits).
       fullPlunge = cfg.surfRefMaxPlunge;
+      // Clamp to machineZTravel - 5 mm to avoid soft-limit alarms (ALARM:2).
+      var allowedMax = Math.max(10, cfg.machineZTravel - 5);
+      if (fullPlunge > allowedMax) {
+        var clampMsg = 'PROBE: clamping plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMax.toFixed(3) +
+          ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
+        outlineAppendLog(clampMsg);
+        smLogProbe('OUTLINE: ' + clampMsg);
+        fullPlunge = allowedMax;
+      }
       outlineAppendLog('PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
       smLogProbe('OUTLINE: PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
