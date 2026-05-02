@@ -79,7 +79,7 @@ function _outlineSettings() {
     retractFeed:       gn('outlineRetractFeed',      600),
     clearZ:            gn('outlineClearZ',           5),
     probeDown:         gn('outlineProbeDown',        5),
-    surfRefMaxPlunge:  gn('outlineSurfRefMaxPlunge', 200),
+    surfRefMaxPlunge:  Math.max(10, gn('outlineSurfRefMaxPlunge', 200)), // ≥10 mm — prevent ALARM:5 from too-short surface probe search depth
     skipSurfaceProbe:  gb('outlineSkipSurfaceProbe'),
     forceRectangle:    gb('outlineForceRectangle')
   };
