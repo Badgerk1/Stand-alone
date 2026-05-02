@@ -240,10 +240,6 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   // Issue the probe move and require contact within maxPlunge.
   // G38.2 is used to match the plugin behavior - controller will alarm if no contact
   // is made within maxPlunge distance, providing immediate feedback of probe issues.
-  // G38.2 is used to match the plugin behavior - controller will alarm if no contact
-  // is made within maxPlunge distance, providing immediate feedback of probe issues.
-  // G38.2 is used to match the plugin behavior - controller will alarm if no contact
-  // is made within maxPlunge distance, providing immediate feedback of probe issues.
   var probeCmd = 'G91 G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed;
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: sending command: ' + probeCmd);
   pluginDebug('smPlungeProbe: sending: ' + probeCmd);
