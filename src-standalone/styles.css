@@ -1,0 +1,233 @@
+  <style>
+    html,body{margin:0;padding:0;background:#10131a}
+    #surface-edge-mesh-root{--bg:#10131a;--panel:#171c26;--panel2:#1c2330;--line:#2b3444;--text:#e8eef9;--muted:#9aa8bf;--accent:#6ea8ff;--accent2:#845ef7;--good:#5fd38d;--warn:#f0b35c;--bad:#ff6b6b;}
+    #surface-edge-mesh-root *{box-sizing:border-box}
+    #surface-edge-mesh-root{background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    #surface-edge-mesh-root .app{min-height:100%;display:flex;flex-direction:column;max-width:1180px;margin:0 auto}
+    #surface-edge-mesh-root .header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#1a2030,#141923)}
+    #surface-edge-mesh-root .title{font-size:16px;font-weight:700}#surface-edge-mesh-root .subtitle{font-size:11px;color:var(--muted)}
+    #surface-edge-mesh-root .brand{display:flex;align-items:center;gap:12px}#surface-edge-mesh-root .brand img{width:44px;height:44px;display:block;border-radius:12px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}#surface-edge-mesh-root .brand-copy{display:flex;flex-direction:column}
+    #surface-edge-mesh-root .tabs{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:#131824;flex-wrap:wrap}
+    #surface-edge-mesh-root .tab{border:1px solid var(--line);background:#151b27;color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
+    #surface-edge-mesh-root .tab.active{background:linear-gradient(180deg,#26324b,#1b2740);border-color:#46639b}
+    #surface-edge-mesh-root .content{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px;display:block}
+    #surface-edge-mesh-root .tab-panel{display:none}#surface-edge-mesh-root .tab-panel.active{display:block}
+    #surface-edge-mesh-root .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+    #surface-edge-mesh-root .box-title{font-size:14px;font-weight:700;margin-bottom:10px}
+    #surface-edge-mesh-root .probe-dim-wrap{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:18px;align-items:start}
+    #surface-edge-mesh-root .probe-diagram{background:linear-gradient(180deg,#131a26,#0f1520);border:1px solid var(--line);border-radius:14px;padding:14px}
+    #surface-edge-mesh-root .probe-svg{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
+    #surface-edge-mesh-root .probe-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    #surface-edge-mesh-root .probe-total-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end;grid-column:1 / -1}
+    #surface-edge-mesh-root .probe-note{grid-column:1 / -1;color:var(--muted);font-size:12px}
+    #surface-edge-mesh-root .probe-chip{display:inline-block;padding:4px 9px;border-radius:999px;background:#1b2740;border:1px solid #35507d;color:#cfe0ff;font-size:11px;margin-bottom:10px}
+    @media (max-width: 980px){
+      #surface-edge-mesh-root .probe-dim-wrap{grid-template-columns:1fr}
+      #surface-edge-mesh-root .probe-fields{grid-template-columns:1fr}
+      #surface-edge-mesh-root .probe-total-row{grid-template-columns:1fr}
+    }
+
+    #surface-edge-mesh-root .grid{display:grid;gap:12px}#surface-edge-mesh-root .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}#surface-edge-mesh-root .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    #surface-edge-mesh-root .field label{display:block;margin-bottom:5px;color:var(--muted)}
+    #surface-edge-mesh-root .field input,#surface-edge-mesh-root .field select,#surface-edge-mesh-root .field textarea{width:100%;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px;font:inherit}
+    #surface-edge-mesh-root .field textarea{min-height:140px;resize:vertical}
+    #surface-edge-mesh-root .mini{font-size:11px;color:var(--muted)}
+    #surface-edge-mesh-root .btn-row{display:flex;gap:10px;flex-wrap:wrap}
+    #surface-edge-mesh-root .btn{border:1px solid #38507f;background:linear-gradient(180deg,#4467a8,#2f4d83);color:#fff;border-radius:12px;padding:9px 14px;cursor:pointer;font:inherit}
+    #surface-edge-mesh-root .btn.ghost{background:#182031;border-color:var(--line);color:var(--text)}
+    #surface-edge-mesh-root .btn.secondary{background:linear-gradient(180deg,#6b50d9,#5633c7);border-color:#8f76ed}
+    #surface-edge-mesh-root .btn.warn{background:linear-gradient(180deg,#9b4f35,#823d28);border-color:#ba7158}
+    #surface-edge-mesh-root .btn:disabled{opacity:.6;cursor:not-allowed}
+    #surface-edge-mesh-root .axis-select{padding:6px 8px;border-radius:10px;border:1px solid #8f76ed;background:#2a1f5a;color:#fff;font:inherit;cursor:pointer}
+    #surface-edge-mesh-root .btn.saving{position:relative;pointer-events:none;opacity:.92}
+    #surface-edge-mesh-root .btn.saving::after{content:'';display:inline-block;width:12px;height:12px;margin-left:8px;border:2px solid rgba(255,255,255,0.42);border-top-color:#fff;border-radius:50%;animation:edgeProbeSpin 0.8s linear infinite;vertical-align:-2px;}
+    #surface-edge-mesh-root .btn.saved{box-shadow:0 0 0 2px rgba(95,211,141,0.35) inset}
+    @keyframes edgeProbeSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    #surface-edge-mesh-root .status-line{margin-top:10px;color:var(--muted);white-space:pre-wrap}
+    #surface-edge-mesh-root .status-line.good{color:var(--good)}#surface-edge-mesh-root .status-line.warn{color:var(--warn)}#surface-edge-mesh-root .status-line.bad{color:var(--bad)}
+    #surface-edge-mesh-root .callout{padding:10px 12px;border-radius:12px;background:#131a25;border:1px solid var(--line);color:var(--muted)}
+    #surface-edge-mesh-root .callout.warn{border-color:var(--warn);color:var(--warn);background:#1f1910}
+    #surface-edge-mesh-root .progress-track{height:12px;border-radius:999px;background:#121723;border:1px solid var(--line);overflow:hidden;margin-top:8px}
+    #surface-edge-mesh-root .progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+    #surface-edge-mesh-root .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    #surface-edge-mesh-root table{width:100%;border-collapse:collapse}#surface-edge-mesh-root th,#surface-edge-mesh-root td{border-bottom:1px solid var(--line);padding:8px;text-align:left}#surface-edge-mesh-root th{color:#bfd0f7;font-weight:700}
+    #surface-edge-mesh-root .footer{display:flex;justify-content:space-between;gap:10px;padding:12px 14px;border-top:1px solid var(--line);background:#131824}
+    #surface-edge-mesh-root .hidden{display:none !important}
+    #surface-edge-mesh-root .tooltip{position:relative;display:inline-flex;align-items:center;gap:6px;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.25);}
+    #surface-edge-mesh-root .tooltip .tip{visibility:hidden;opacity:0;pointer-events:none;position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);min-width:220px;width:260px;z-index:50;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#111723;color:var(--text);box-shadow:0 10px 24px rgba(0,0,0,0.35);transition:opacity .12s ease;font-size:12px;line-height:1.35;font-weight:400;}
+    @media (max-width:520px){#surface-edge-mesh-root .tooltip .tip{left:0;top:calc(100% + 8px);transform:none;}}
+    #surface-edge-mesh-root .tooltip:hover .tip,#surface-edge-mesh-root .tooltip:focus-within .tip{visibility:visible;opacity:1;}
+    #surface-edge-mesh-root .tip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1;flex:0 0 16px;}
+    #surface-edge-mesh-root .compact .panel{padding:10px;margin-bottom:10px}
+    #surface-edge-mesh-root .compact .tabs{padding:8px 10px}
+    #surface-edge-mesh-root .compact .content{padding:10px}
+    #surface-edge-mesh-root .compact .title{font-size:14px}
+    #surface-edge-mesh-root .compact .subtitle{font-size:10px}
+    #surface-edge-mesh-root .compact .grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}
+    #surface-edge-mesh-root .collapsed .tabs,#surface-edge-mesh-root .collapsed .content,#surface-edge-mesh-root .collapsed .footer{display:none}
+    #surface-edge-mesh-root .collapsed .app{max-width:560px}
+    #surface-edge-mesh-root .collapsed .header{padding:10px 12px}
+    #surface-edge-mesh-root .log-area{background:#0d111a;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:11px;max-height:220px;overflow-y:auto;margin-top:10px;line-height:1.5;user-select:text;cursor:text}
+    #surface-edge-mesh-root .log-area .log-entry{margin:1px 0;user-select:text;cursor:text}
+    #surface-edge-mesh-root .log-entry.good{color:var(--good)}#surface-edge-mesh-root .log-entry.warn{color:var(--warn)}#surface-edge-mesh-root .log-entry.bad{color:var(--bad)}
+    #surface-edge-mesh-root .setup-helpers{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(340px,.9fr);gap:14px;align-items:start}
+    #surface-edge-mesh-root .stack{display:flex;flex-direction:column;gap:12px}
+    #surface-edge-mesh-root .jog-card{background:linear-gradient(180deg,#171d29,#131923);border:1px solid var(--line);border-radius:16px;padding:14px;position:sticky;top:0}
+    #surface-edge-mesh-root .jog-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    #surface-edge-mesh-root .jog-step-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    #surface-edge-mesh-root .jog-step-pills{display:flex;gap:8px;flex-wrap:wrap}
+    #surface-edge-mesh-root .jog-pill{min-width:56px;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:#182031;color:var(--text);cursor:pointer;font:inherit}
+    #surface-edge-mesh-root .jog-pill.active{background:linear-gradient(90deg,#73d85f,#dd9d36);border-color:#e4bd53;color:#fff;font-weight:700}
+    #surface-edge-mesh-root .jog-feed-wrap{display:flex;align-items:center;gap:8px}
+    #surface-edge-mesh-root .jog-feed-wrap input{width:96px;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:9px 10px;font:inherit}
+    #surface-edge-mesh-root .jog-grid-wrap{display:grid;grid-template-columns:minmax(0,1fr) 76px 76px;gap:12px;align-items:stretch}
+    #surface-edge-mesh-root .jog-xy-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    #surface-edge-mesh-root .jog-col{display:grid;grid-template-rows:1fr 1fr;gap:8px}
+    #surface-edge-mesh-root .jog-btn{min-height:68px;border-radius:14px;border:1px solid var(--line);background:#182031;color:var(--text);cursor:pointer;font:700 16px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;user-select:none;transition:transform .1s ease,box-shadow .15s ease,background .15s ease}
+    #surface-edge-mesh-root .jog-btn:hover{border-color:#46639b;background:#1d2739}
+    #surface-edge-mesh-root .jog-btn:active,#surface-edge-mesh-root .jog-btn.btn-pressed{transform:scale(0.93);box-shadow:0 0 12px rgba(70,99,155,0.6) inset;background:#243350}
+    #surface-edge-mesh-root .jog-btn.btn-flash{animation:jogBtnFlash .35s ease}
+    @keyframes jogBtnFlash{0%{box-shadow:0 0 0 rgba(115,216,95,0)}30%{box-shadow:0 0 16px rgba(115,216,95,0.7),0 0 6px rgba(115,216,95,0.4) inset}100%{box-shadow:0 0 0 rgba(115,216,95,0)}}
+    #surface-edge-mesh-root .jog-btn.stop{background:linear-gradient(180deg,#dd5a49,#c94036);border-color:#ef8f80}
+    #surface-edge-mesh-root .jog-btn.resume{background:linear-gradient(180deg,#3a9d5d,#2d7a49);border-color:#7fd39a}
+    #surface-edge-mesh-root .jog-btn.disabled,#surface-edge-mesh-root .jog-btn:disabled{opacity:.5;cursor:not-allowed}
+    #surface-edge-mesh-root .btn.btn-flash{animation:btnFlash .35s ease}
+    @keyframes btnFlash{0%{box-shadow:0 0 0 rgba(115,216,95,0)}30%{box-shadow:0 0 14px rgba(115,216,95,0.6)}100%{box-shadow:0 0 0 rgba(115,216,95,0)}}
+    #surface-edge-mesh-root .btn.btn-save-confirm,#surface-edge-mesh-root .btn.ghost.btn-save-confirm{background:linear-gradient(180deg,#2a7d4f,#1d5c38) !important;border-color:#5fdb8d !important;color:#e8fdf0 !important;transition:background .3s ease,border-color .3s ease,color .3s ease}
+    #surface-edge-mesh-root .btn{transition:background .3s ease,border-color .3s ease,color .3s ease}
+    #surface-edge-mesh-root .jog-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+    #surface-edge-mesh-root .jog-meta .field input{padding:9px 10px}
+    #surface-edge-mesh-root .jog-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    #surface-edge-mesh-root .jog-actions .btn{flex:1 1 160px}
+    /* compact mode — when jog card is teleported into the Probe tab */
+    #surface-edge-mesh-root .jog-card.jog-compact{padding:10px;border-radius:12px;position:static;margin-bottom:8px}
+    #surface-edge-mesh-root .jog-card.jog-compact .box-title{font-size:12px;margin-bottom:6px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-topbar{margin-bottom:8px;gap:8px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-pill{min-width:44px;height:28px;padding:0 10px;font-size:12px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-feed-wrap input{width:72px;padding:5px 8px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-btn{min-height:48px;border-radius:10px;font-size:13px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-grid-wrap{gap:8px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-meta{gap:8px;margin-top:8px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-meta .field input{padding:6px 8px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-actions{margin-top:8px;gap:6px}
+    #surface-edge-mesh-root .jog-card.jog-compact .jog-actions .btn{flex:1 1 120px;padding:6px 10px;font-size:12px}
+    #surface-edge-mesh-root .jog-card.jog-compact .mini{font-size:10px;margin-top:6px}
+    @media (max-width: 980px){#surface-edge-mesh-root .setup-helpers{grid-template-columns:1fr}#surface-edge-mesh-root .jog-card{position:static}}
+    @media (max-width: 640px){#surface-edge-mesh-root .jog-grid-wrap{grid-template-columns:1fr}#surface-edge-mesh-root .jog-col{grid-template-columns:1fr 1fr;grid-template-rows:none}#surface-edge-mesh-root .jog-btn{min-height:58px}}
+    #surface-edge-mesh-root input[type="number"]::-webkit-inner-spin-button,#surface-edge-mesh-root input[type="number"]::-webkit-outer-spin-button{ opacity: 1; }
+    #surface-edge-mesh-root input[type="number"]{ -moz-appearance: auto; appearance: auto; }
+
+    /* ── Probe Visualizer (Top-Down default) ─────────────────────────────── */
+    #surface-edge-mesh-root #sm-probeViz{display:block;margin-top:10px}
+    #surface-edge-mesh-root #sm-pviz-scene{position:relative;height:250px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #sm-pviz-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #sm-pviz-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%}
+    #surface-edge-mesh-root #sm-pviz-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #sm-pviz-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #sm-pviz-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);z-index:2}
+    #surface-edge-mesh-root .sm-pviz-dot{position:absolute;width:9px;height:9px;border-radius:50%;margin:-4.5px 0 0 -4.5px;pointer-events:none;transition:opacity .3s;z-index:3}
+    #surface-edge-mesh-root #sm-pviz-mesh-layer{position:absolute;inset:0;pointer-events:none;z-index:1}
+    #surface-edge-mesh-root #sm-pviz-mesh{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;opacity:0;transition:opacity 0.5s ease}
+    #surface-edge-mesh-root #sm-pviz-mesh.mesh-active{opacity:1}
+    #surface-edge-mesh-root #sm-pviz-probe-wrap{position:absolute;width:0;height:0;left:50%;top:50%;transition:left 25ms linear,top 25ms linear;z-index:4}
+    #surface-edge-mesh-root #sm-pviz-probe-shadow{position:absolute;width:18px;height:18px;border-radius:50%;margin:-9px 0 0 -9px;background:rgba(149,168,200,.18)}
+    /* Probe body: tip (SVG bottom at y=138) pinned to wrap origin. Fixed 46px width → left:-23px top:-138px */
+    #surface-edge-mesh-root #sm-pviz-probe-body{position:absolute;left:-23px;top:-138px;transition:transform 25ms linear;pointer-events:none}
+    #surface-edge-mesh-root .sm-probe-img{width:46px;height:auto;display:block;transform-origin:50% 90%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45));animation:smProbeWobble 2.4s ease-in-out infinite}
+    #surface-edge-mesh-root #sm-pviz-probe-body.probe-plunging .sm-probe-img,#surface-edge-mesh-root #sm-pviz-probe-body.probe-contact .sm-probe-img{animation:none}
+    @keyframes smProbeWobble{0%,100%{transform:translateY(0) rotateZ(0deg)}30%{transform:translateY(-3px) rotateZ(1.5deg)}70%{transform:translateY(-1.5px) rotateZ(-1deg)}}
+    /* Top-down plunge/contact: purely 2D translateY so tip stays pinned and never appears below surface */
+    #surface-edge-mesh-root #sm-pviz-probe-body.probe-plunging{transform:translateY(10px)}
+    #surface-edge-mesh-root #sm-pviz-probe-body.probe-contact{transform:translateY(12px);animation:smPvizBodyGlow .55s ease-in-out 3}
+    @keyframes smPvizBodyGlow{0%,100%{filter:drop-shadow(0 0 3px rgba(255,106,32,.15))}50%{filter:drop-shadow(0 0 8px rgba(255,106,32,.95)) drop-shadow(0 0 18px rgba(255,106,32,.5))}}
+    /* ── Probe Visualizer: optional 3D tilt mode (.sm-pviz-tilt on #sm-pviz-scene) ── */
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt{perspective:700px;perspective-origin:50% 10%}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-3dscene{transform-style:preserve-3d;transform:rotateX(60deg) rotateY(0deg) rotateZ(-35deg)}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-surface{transform-style:preserve-3d}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt .sm-pviz-dot{transform:translateZ(4px);z-index:auto}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-mesh-layer{transform:translateZ(-2px);transform-style:preserve-3d;z-index:auto}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-probe-wrap{transform-style:preserve-3d;transform:translateZ(2px);z-index:auto}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-probe-shadow{transform:translateZ(0)}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-probe-body{left:0;top:0;margin:-138px 0 0 -23px;transform:translateZ(52px);transform-style:preserve-3d}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-probe-orient{transform-style:preserve-3d;transform:rotateZ(35deg) rotateX(-60deg)}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-probe-body.probe-plunging{transform:translateZ(4px)}
+    #surface-edge-mesh-root #sm-pviz-scene.sm-pviz-tilt #sm-pviz-probe-body.probe-contact{transform:translateZ(4px);animation:smPvizBodyGlow .55s ease-in-out 3}
+    /* ── Results Tab 3D Visualizer ──────────────────────────────────────────── */
+    #surface-edge-mesh-root #res-pviz-scene{position:relative;height:250px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;perspective:700px;perspective-origin:50% 10%;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #res-pviz-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #res-pviz-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%;transform-style:preserve-3d;transform:rotateX(60deg) rotateY(0deg) rotateZ(-35deg)}
+    /* ── Results Tab Face 3D Visualizer ─────────────────────────────────────── */
+    #surface-edge-mesh-root #resface-pviz-scene{position:relative;height:250px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;perspective:700px;perspective-origin:50% 10%;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #resface-pviz-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #resface-pviz-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%;transform-style:preserve-3d;transform:rotateX(20deg) rotateY(-25deg) rotateZ(0deg)}
+    #surface-edge-mesh-root #resface-pviz-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #resface-pviz-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #resface-pviz-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);transform-style:preserve-3d}
+    #surface-edge-mesh-root #res-pviz-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #res-pviz-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #res-pviz-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);transform-style:preserve-3d}
+    /* ── Surface Mesh Tab 3D Visualizer ─────────────────────────────────────── */
+    #surface-edge-mesh-root #surf-pviz-scene{position:relative;height:250px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;perspective:700px;perspective-origin:50% 10%;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #surf-pviz-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #surf-pviz-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%;transform-style:preserve-3d;transform:rotateX(60deg) rotateY(0deg) rotateZ(-35deg)}
+    #surface-edge-mesh-root #surf-pviz-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #surf-pviz-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #surf-pviz-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);transform-style:preserve-3d}
+    /* ── Combined Mesh Tab 3D Visualizer ────────────────────────────────────── */
+    #surface-edge-mesh-root #comb-pviz-scene{position:relative;height:250px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;perspective:700px;perspective-origin:50% 10%;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #comb-pviz-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #comb-pviz-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%;transform-style:preserve-3d;transform:rotateX(38deg) rotateY(-20deg) rotateZ(-4deg)}
+    #surface-edge-mesh-root #comb-pviz-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #comb-pviz-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #comb-pviz-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);transform-style:preserve-3d}
+    #surface-edge-mesh-root .comb-pviz-dot{position:absolute;width:9px;height:9px;border-radius:50%;margin:-4.5px 0 0 -4.5px;transform:translateZ(4px);pointer-events:none}
+    #surface-edge-mesh-root #face-pviz-scene{position:relative;height:250px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;perspective:700px;perspective-origin:50% 10%;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #face-pviz-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #face-pviz-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%;transform-style:preserve-3d;transform:rotateX(20deg) rotateY(-25deg) rotateZ(0deg)}
+    #surface-edge-mesh-root #face-pviz-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #face-pviz-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #face-pviz-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);transform-style:preserve-3d}
+    #surface-edge-mesh-root .face-pviz-dot{position:absolute;width:8px;height:8px;border-radius:50%;margin:-4px 0 0 -4px;transform:translateZ(4px);pointer-events:none;background:#e4a050}
+    /* ── Surface Relief 3D Terrain ───────────────────────────────────────────── */
+    #surface-edge-mesh-root #relief-3d-scene{position:relative;height:260px;background:radial-gradient(ellipse at 50% 0%,#0f1f38 0%,#060a10 70%);border:1px solid var(--line);border-radius:10px;overflow:hidden;perspective:700px;perspective-origin:50% 10%;cursor:grab;user-select:none}
+    #surface-edge-mesh-root #relief-3d-scene.pviz-dragging{cursor:grabbing}
+    #surface-edge-mesh-root #relief-3d-3dscene{position:absolute;width:78%;height:58%;left:11%;top:18%;transform-style:preserve-3d;transform:rotateX(60deg) rotateY(0deg) rotateZ(-35deg)}
+    #surface-edge-mesh-root #relief-3d-reset-btn{position:absolute;top:7px;right:9px;z-index:10;padding:3px 9px;border-radius:8px;border:1px solid rgba(58,85,128,0.55);background:rgba(8,17,30,0.72);color:var(--muted);font:10px/1.5 system-ui,-apple-system,sans-serif;cursor:pointer;transition:color .2s,border-color .2s}
+    #surface-edge-mesh-root #relief-3d-reset-btn:hover{color:var(--text);border-color:var(--accent2)}
+    #surface-edge-mesh-root #relief-3d-surface{position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%),repeating-linear-gradient(0deg,rgba(58,85,128,0.45) 0 1px,transparent 1px 100%);background-size:25% 33.33%;background-color:#08111e;border:1px solid rgba(58,85,128,0.65);transform-style:preserve-3d}
+    #surface-edge-mesh-root #relief-3d-mesh{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 1.2s ease;pointer-events:none;transform:translateZ(3px);overflow:visible}
+    #surface-edge-mesh-root #relief-3d-mesh.mesh-visible{opacity:1}
+    /* ── Three.js WebGL canvas overlay ──────────────────────────────────────── */
+    #surface-edge-mesh-root .three-canvas-wrap{position:absolute;inset:0;z-index:5;display:none;border-radius:10px;overflow:hidden}
+    #surface-edge-mesh-root .three-canvas-wrap.three-active{display:block}
+    #surface-edge-mesh-root .three-canvas-wrap canvas{display:block!important;width:100%!important}
+
+    /* ── Layout Editor ──────────────────────────────────────────────────────── */
+    /* Toggle button in the tabs bar */
+    #surface-edge-mesh-root .layout-edit-btn{border:1px solid var(--line);background:#182031;color:var(--muted);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:11px;margin-left:auto;white-space:nowrap;transition:background .2s,color .2s,border-color .2s}
+    #surface-edge-mesh-root .layout-reset-btn{margin-left:4px}
+    #surface-edge-mesh-root .layout-edit-btn:hover{background:#1d2739;color:var(--text)}
+    #surface-edge-mesh-root .layout-edit-btn.active{background:linear-gradient(180deg,#2a4a1e,#1e3614);border-color:#5fdb8d;color:#a8f0c0}
+    /* Drag handle injected into each panel */
+    #surface-edge-mesh-root .le3dp-drag-handle{font-size:11px;color:var(--accent);opacity:.75;cursor:grab;user-select:none;margin-bottom:6px;display:flex;align-items:center;gap:6px;border-bottom:1px dashed rgba(110,168,255,.25);padding-bottom:5px}
+    #surface-edge-mesh-root .le3dp-drag-handle::before{content:'\2807\2807';font-size:14px;letter-spacing:2px;color:var(--accent);opacity:.8}
+    /* Make draggable children position:relative so the handle sits correctly */
+    #surface-edge-mesh-root.layout-edit-active .tab-panel > [data-panel-key]{position:relative;cursor:grab;transition:box-shadow .15s,opacity .15s}
+    /* Show hidden panels (e.g. hold-warning) while layout edit is active so they can be dragged */
+    #surface-edge-mesh-root.layout-edit-active #plugin-hold-warning{display:block!important}
+    /* Being dragged */
+    #surface-edge-mesh-root .layout-dragging{opacity:.45!important;box-shadow:0 0 0 2px var(--accent) inset}
+    /* Drop target indicators */
+    #surface-edge-mesh-root .layout-drag-over-before{box-shadow:0 -3px 0 0 var(--accent),0 0 0 1px rgba(110,168,255,.18)}
+    #surface-edge-mesh-root .layout-drag-over-after{box-shadow:0 3px 0 0 var(--accent),0 0 0 1px rgba(110,168,255,.18)}
+
+    /* ── Toggle switch ──────────────────────────────────────────────────────── */
+    #surface-edge-mesh-root .toggle-wrap{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+    #surface-edge-mesh-root .toggle-wrap input[type=checkbox]{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+    #surface-edge-mesh-root .toggle-track{position:relative;display:inline-block;width:36px;height:20px;border-radius:999px;background:#1c2840;border:1px solid var(--line);flex-shrink:0;transition:background .2s,border-color .2s}
+    #surface-edge-mesh-root .toggle-wrap input[type=checkbox]:checked + .toggle-track{background:var(--accent2);border-color:var(--accent2)}
+    #surface-edge-mesh-root .toggle-track::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s,background .2s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+    #surface-edge-mesh-root .toggle-wrap input[type=checkbox]:checked + .toggle-track::after{transform:translateX(16px)}
+    #surface-edge-mesh-root .toggle-label{color:var(--muted);font-size:13px}
+
+  </style>
