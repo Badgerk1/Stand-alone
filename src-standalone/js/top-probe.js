@@ -288,7 +288,7 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   endPos.machineX = snap.machineX;
   endPos.machineY = snap.machineY;
   endPos.machineZ = snap.machineZ;
-  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: machineZ=' + snap.machineZ.toFixed(3));
+  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'null'));
   return endPos;
 }
 
