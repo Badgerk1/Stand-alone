@@ -11293,14 +11293,34 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('TRAVEL: diagonal to center X=' + cx.toFixed(3) + ' Y=' + cy.toFixed(3) + ' at F' + cfg.fastFeed);
     await moveAbs(cx, cy, null, cfg.fastFeed);
 
-    // 3. Read current work Z — this is the full travel distance available
-    //    from machine ceiling to work zero. Probe the entire range so the
-    //    probe finds the surface no matter how far down it is.
-    //    Use surfRefMaxPlunge as a minimum to handle the case where work
-    //    coordinates have not been set up (pos.z = 0 at ceiling).
+    // 3. Read current position and calculate safe probe distance.
+    //    CRITICAL: When at machine Z=0 (top of travel), work Z may also be 0
+    //    if work coordinates aren't set up. In this case, use machine position
+    //    to calculate available travel. The machine has already moved to machine Z=0
+    //    in step 1, so we know we're at the ceiling.
+    //
+    //    Strategy: Get machine snapshot to determine actual machine position.
+    //    If machineZ is available and near 0 (at ceiling), probe must use the
+    //    full machine Z range, not work Z. Otherwise ALARM:5 occurs because
+    //    GRBL thinks the probe distance would exceed limits.
     var pos = await getWorkPosition();
-    var fullPlunge = Math.max(pos.z + 5, cfg.surfRefMaxPlunge);
-    outlineAppendLog('PROBE: full Z plunge from Z=' + pos.z.toFixed(3) + ' distance=' + fullPlunge.toFixed(3));
+    var snap = await getMachineSnapshot();
+    var atMachineCeiling = (snap.machineZ != null && snap.machineZ >= -0.5 && snap.machineZ <= 0.5);
+    var fullPlunge;
+
+    if (atMachineCeiling && Math.abs(pos.z) < 1) {
+      // At machine ceiling with work Z near 0 — work coordinates not set up properly.
+      // Use surfRefMaxPlunge as the safe probe distance (controller knows its limits).
+      fullPlunge = cfg.surfRefMaxPlunge;
+      outlineAppendLog('PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
+        '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
+    } else {
+      // Normal case: work coordinates set up, use work Z + buffer or surfRefMaxPlunge, whichever is larger.
+      fullPlunge = Math.max(Math.abs(pos.z) + 5, cfg.surfRefMaxPlunge);
+      outlineAppendLog('PROBE: full Z plunge from workZ=' + pos.z.toFixed(3) +
+        ' machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
+        ' distance=' + fullPlunge.toFixed(3));
+    }
 
     // 4. G38.2 plunge — stops on contact, errors only if nothing touched
     // Calculate timeout: travel time at probe feed rate + 10s buffer
@@ -11311,22 +11331,15 @@ async function runOutlineSurfaceProbe() {
     await sendCommand('G91');
     await waitForIdleWithTimeout();
     // Log a controller snapshot just before issuing G38.2 — aids alarm diagnosis.
-    try {
-      var _dbgSnap = await getMachineSnapshot();
-      var _dbgPn   = (_dbgSnap.raw && _dbgSnap.raw.Pn) ? _dbgSnap.raw.Pn : 'none';
-      var _dbgMPos = (_dbgSnap.machineX != null && _dbgSnap.machineY != null && _dbgSnap.machineZ != null)
-        ? 'X' + _dbgSnap.machineX.toFixed(3) + ' Y' + _dbgSnap.machineY.toFixed(3) + ' Z' + _dbgSnap.machineZ.toFixed(3)
-        : 'n/a';
-      outlineAppendLog('DEBUG SNAP: status=' + _dbgSnap.status +
-        ' Pn=' + _dbgPn +
-        ' probe=' + (_dbgSnap.probeTriggered ? 'triggered' : 'open') +
-        ' MPos=' + _dbgMPos +
-        ' WPos=X' + (_dbgSnap.x != null ? _dbgSnap.x.toFixed(3) : '?') +
-        ' Y' + (_dbgSnap.y != null ? _dbgSnap.y.toFixed(3) : '?') +
-        ' Z' + (_dbgSnap.z != null ? _dbgSnap.z.toFixed(3) : '?'));
-    } catch (_dbgErr) {
-      outlineAppendLog('DEBUG SNAP: (snapshot unavailable: ' + _dbgErr.message + ')');
-    }
+    outlineAppendLog('DEBUG SNAP: status=' + snap.status +
+      ' Pn=' + (snap.raw && snap.raw.Pn ? snap.raw.Pn : 'none') +
+      ' probe=' + (snap.probeTriggered ? 'triggered' : 'open') +
+      ' MPos=' + (snap.machineX != null && snap.machineY != null && snap.machineZ != null
+        ? 'X' + snap.machineX.toFixed(3) + ' Y' + snap.machineY.toFixed(3) + ' Z' + snap.machineZ.toFixed(3)
+        : 'n/a') +
+      ' WPos=X' + (snap.x != null ? snap.x.toFixed(3) : '?') +
+      ' Y' + (snap.y != null ? snap.y.toFixed(3) : '?') +
+      ' Z' + (snap.z != null ? snap.z.toFixed(3) : '?'));
     outlineAppendLog('PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
     await sendCommand('G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0), probeTimeMs);
     await sleep(50);
