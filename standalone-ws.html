@@ -9038,10 +9038,16 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: sending command: ' + probeCmd);
   pluginDebug('smPlungeProbe: sending: ' + probeCmd);
   var _plungeStart = _smTimingEnabled ? Date.now() : 0;
-  await sendCommand(probeCmd);
+  // Calculate a probe-time-aware timeout: travel time + 10 s buffer.
+  // The default 15 s sendCommand timeout and 30 s waitForIdleWithTimeout are too
+  // short when the probe feed is slow and/or maxPlunge is large (e.g. 50 mm @
+  // 100 mm/min = 30 s, right at the default limit). Pass an explicit timeout to
+  // both calls so the cycle always has enough time to complete.
+  var probeTimeMs = Math.ceil((maxPlunge / probeFeed) * 60000) + 10000;
+  await sendCommand(probeCmd, probeTimeMs);
   await sleep(50); // Brief delay to ensure controller starts processing
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: waiting for idle after probe move...');
-  await waitForIdleWithTimeout();
+  await waitForIdleWithTimeout(probeTimeMs);
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: idle confirmed after probe move');
   if (_smTimingEnabled && smTimingStats) {
     var _pMs = Date.now() - _plungeStart;
@@ -9073,7 +9079,7 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   endPos.machineX = snap.machineX;
   endPos.machineY = snap.machineY;
   endPos.machineZ = snap.machineZ;
-  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: machineZ=' + snap.machineZ.toFixed(3));
+  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'n/a'));
   return endPos;
 }
 
@@ -9294,7 +9300,10 @@ function runSurfaceProbing() {
           smPvizUpdate('contact', { x: colX, y: rowY, point: probed, total: totalPoints, contactZ: pos.z, pct: probed / totalPoints * 100 });
           smLogProbe('  -> Z=' + smFmtN(pos.z));
           smLogProbe('DEBUG POSITION: after probe X=' + pos.x.toFixed(3) + ' Y=' + pos.y.toFixed(3) + ' Z=' + pos.z.toFixed(3));
-          smLogProbe('DEBUG: contact at Z=' + pos.z.toFixed(3) + '; smSafeLateralMove will lift ' + clearanceZ.toFixed(3) + ' coords relative before next travel');
+          // Retract to safe clearance Z immediately after contact so the machine is
+          // in a safe position before the next lateral move or before the run ends.
+          smLogProbe('Retracting to clearanceZ=' + clearanceZ.toFixed(3) + ' after contact at Z=' + pos.z.toFixed(3));
+          return smRetractUp(clearanceZ, travelFeed);
         })
         .then(function() { return probeStep(step + 1); });
     }
