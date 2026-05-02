@@ -16558,14 +16558,24 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
   var hdr = document.getElementById('hdr-conn');
   if (!hdr) return;
   hdr.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
+
+  // Load saved settings from localStorage
+  var savedHost = localStorage.getItem('ws-host') || '192.168.5.1';
+  var savedPort = localStorage.getItem('ws-port') || '81';
+
   hdr.innerHTML =
-    '<input id="ws-host" type="text" value="192.168.5.1" placeholder="Controller IP" title="Controller IP address" ' +
+    '<input id="ws-host" type="text" value="' + savedHost + '" placeholder="Controller IP" title="Controller IP address" ' +
       'style="background:#131824;color:var(--text);border:1px solid var(--line);border-radius:6px;' +
              'padding:3px 6px;font-size:12px;width:120px">' +
     '<span style="font-size:12px;color:var(--muted)">:</span>' +
-    '<input id="ws-port" type="number" value="81" min="1" max="65535" title="WebSocket port" ' +
+    '<input id="ws-port" type="number" value="' + savedPort + '" min="1" max="65535" title="WebSocket port" ' +
       'style="background:#131824;color:var(--text);border:1px solid var(--line);border-radius:6px;' +
              'padding:3px 6px;font-size:12px;width:60px">' +
+    '<button id="ws-save-btn" onclick="wsSaveSettings()" ' +
+      'style="background:#27ae60;border:1px solid #229954;color:#fff;' +
+             'padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap">' +
+      'Save' +
+    '</button>' +
     '<button id="ws-connect-btn" onclick="wsToggleConnect()" ' +
       'style="background:#1b2740;border:1px solid var(--line);color:var(--text);' +
              'padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap">' +
@@ -16598,15 +16608,53 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
 
 function _wsSetUI(connected) {
   var btn  = document.getElementById('ws-connect-btn');
+  var saveBtn = document.getElementById('ws-save-btn');
   var st   = document.getElementById('ws-status');
   var host = document.getElementById('ws-host');
   var port = document.getElementById('ws-port');
   if (btn)  btn.textContent = connected ? 'Disconnect' : 'Connect';
+  if (saveBtn) saveBtn.disabled = connected;
   if (host) host.disabled = connected;
   if (port) port.disabled = connected;
   if (st) {
     st.textContent = connected ? '\u25cf Connected' : '\u25cb Not connected';
     st.style.color = connected ? 'var(--good,#5fd38d)' : 'var(--muted)';
+  }
+}
+
+// ── Save settings to localStorage ─────────────────────────────────────────────
+function wsSaveSettings() {
+  var host = ((document.getElementById('ws-host') || {}).value || '').trim();
+  var port = ((document.getElementById('ws-port') || {}).value || '').trim();
+
+  if (!host) {
+    setFooterStatus('Enter an IP address before saving.', 'warn');
+    return;
+  }
+
+  if (!port || Number(port) < 1 || Number(port) > 65535) {
+    setFooterStatus('Enter a valid port number (1-65535) before saving.', 'warn');
+    return;
+  }
+
+  try {
+    localStorage.setItem('ws-host', host);
+    localStorage.setItem('ws-port', port);
+    setFooterStatus('Settings saved: ' + host + ':' + port, 'ok');
+
+    // Visual feedback on the Save button
+    var saveBtn = document.getElementById('ws-save-btn');
+    if (saveBtn) {
+      var origText = saveBtn.textContent;
+      saveBtn.textContent = '\u2713 Saved';
+      saveBtn.style.background = '#229954';
+      setTimeout(function() {
+        saveBtn.textContent = origText;
+        saveBtn.style.background = '#27ae60';
+      }, 1500);
+    }
+  } catch (e) {
+    setFooterStatus('Could not save settings: ' + e.message, 'bad');
   }
 }
 
