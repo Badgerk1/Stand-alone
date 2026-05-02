@@ -81,6 +81,7 @@ function _outlineSettings() {
     probeDown:         gn('outlineProbeDown',        5),
     surfRefMaxPlunge:  Math.max(10, gn('outlineSurfRefMaxPlunge', 200)), // ≥10 mm — prevent ALARM:5 from too-short surface probe search depth
     machineZTravel:    Math.max(10, gn('outlineMachineZTravel',  165)), // total machine Z travel (mm) — used to clamp Phase 1 plunge
+    surfProbeDepthMode: (function() { var el = document.getElementById('outlineSurfProbeDepthMode'); return (el && el.value === 'custom') ? 'custom' : 'auto'; })(),
     skipSurfaceProbe:  gb('outlineSkipSurfaceProbe'),
     forceRectangle:    gb('outlineForceRectangle')
   };
@@ -230,16 +231,23 @@ async function runOutlineSurfaceProbe() {
 
     if (atMachineCeiling && Math.abs(pos.z) < 1) {
       // At machine ceiling with work Z near 0 — work coordinates not set up properly.
-      // Use surfRefMaxPlunge as the safe probe distance (controller knows its limits).
-      fullPlunge = cfg.surfRefMaxPlunge;
-      // Clamp to machineZTravel - 5 mm to avoid soft-limit alarms (ALARM:2).
+      // Compute effective plunge based on depth mode.
       var allowedMax = Math.max(10, cfg.machineZTravel - 5);
-      if (fullPlunge > allowedMax) {
-        var clampMsg = 'PROBE: clamping plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMax.toFixed(3) +
-          ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
-        outlineAppendLog(clampMsg);
-        smLogProbe('OUTLINE: ' + clampMsg);
+      if (cfg.surfProbeDepthMode === 'auto') {
+        // Auto: use machineZTravel - 5 directly
         fullPlunge = allowedMax;
+        outlineAppendLog('PROBE: Auto depth mode — using machineZTravel(' + cfg.machineZTravel.toFixed(0) + ') - 5 = ' + fullPlunge.toFixed(3) + ' mm');
+        smLogProbe('OUTLINE: PROBE: Auto depth mode — effective plunge=' + fullPlunge.toFixed(3) + ' mm');
+      } else {
+        // Custom: use stored surfRefMaxPlunge, still clamped to allowedMax for safety
+        fullPlunge = cfg.surfRefMaxPlunge;
+        if (fullPlunge > allowedMax) {
+          var clampMsg = 'PROBE: clamping custom plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMax.toFixed(3) +
+            ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
+          outlineAppendLog(clampMsg);
+          smLogProbe('OUTLINE: ' + clampMsg);
+          fullPlunge = allowedMax;
+        }
       }
       outlineAppendLog('PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
@@ -2158,3 +2166,89 @@ function exportOutlineJSON() {
   saveTextFile('outline_data_' + tsForFilename() + '.json', JSON.stringify(payload, null, 2));
   outlineAppendLog('Outline data exported as JSON.');
 }
+
+// ── Depth mode UI helpers ─────────────────────────────────
+/**
+ * outlineUpdateDepthModeUI()
+ * Called on mode-select change and after settings load.
+ * Shows/hides the custom depth field and updates the auto hint text.
+ */
+function outlineUpdateDepthModeUI() {
+  var modeEl   = document.getElementById('outlineSurfProbeDepthMode');
+  var fieldEl  = document.getElementById('outlineSurfRefMaxPlungeField');
+  var hintEl   = document.getElementById('outlineSurfProbeDepthHint');
+  var travelEl = document.getElementById('outlineMachineZTravel');
+  if (!modeEl) return;
+  var mode   = modeEl.value;
+  var travel = travelEl ? Math.max(10, Number(travelEl.value) || 165) : 165;
+  var auto   = Math.max(10, travel - 5);
+  if (fieldEl) fieldEl.style.display = (mode === 'custom') ? '' : 'none';
+  if (hintEl) {
+    if (mode === 'auto') {
+      hintEl.textContent = 'Auto: ' + travel.toFixed(0) + ' \u2212 5 = ' + auto.toFixed(0) + ' mm (effective search depth)';
+      hintEl.style.color = 'var(--accent,#6ea8ff)';
+    } else {
+      hintEl.textContent = 'Will be clamped to \u2264 ' + auto.toFixed(0) + ' mm (' + travel.toFixed(0) + ' \u2212 5) for safety';
+      hintEl.style.color = 'var(--warn,#f0b35c)';
+    }
+  }
+}
+
+// ── Setup Wizard ──────────────────────────────────────────
+function outlineWizardUpdateHint() {
+  var travelEl = document.getElementById('wizard-z-travel');
+  var hintEl   = document.getElementById('wizard-hint');
+  if (!travelEl || !hintEl) return;
+  var travel = Math.max(10, Number(travelEl.value) || 165);
+  hintEl.textContent = 'Auto depth will be: ' + travel.toFixed(0) + ' \u2212 5 = ' + Math.max(10, travel - 5).toFixed(0) + ' mm';
+}
+
+function outlineRunSetupWizard() {
+  var overlay = document.getElementById('outline-wizard-overlay');
+  if (!overlay) return;
+  // Pre-fill wizard with current Machine Z Travel value
+  var travelEl = document.getElementById('outlineMachineZTravel');
+  var wizTravel = document.getElementById('wizard-z-travel');
+  if (travelEl && wizTravel) wizTravel.value = travelEl.value || '165';
+  // Pre-fill mode
+  var modeEl = document.getElementById('outlineSurfProbeDepthMode');
+  var wizMode = document.getElementById('wizard-depth-mode');
+  if (modeEl && wizMode) wizMode.value = modeEl.value || 'auto';
+  outlineWizardUpdateHint();
+  overlay.style.display = 'flex';
+}
+
+function outlineCloseSetupWizard() {
+  var overlay = document.getElementById('outline-wizard-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function outlineSaveSetupWizard() {
+  var wizTravel = document.getElementById('wizard-z-travel');
+  var wizMode   = document.getElementById('wizard-depth-mode');
+  var travelEl  = document.getElementById('outlineMachineZTravel');
+  var modeEl    = document.getElementById('outlineSurfProbeDepthMode');
+  if (wizTravel && travelEl) travelEl.value = wizTravel.value;
+  if (wizMode   && modeEl  ) modeEl.value   = wizMode.value;
+  outlineUpdateDepthModeUI();
+  try { saveSettings(); } catch(e) {}
+  outlineCloseSetupWizard();
+}
+
+// Check on load: if Machine Z Travel is at default (unset) prompt wizard
+(function _outlineWizardInit() {
+  function _check() {
+    try {
+      var raw = localStorage.getItem(typeof SM_SETTINGS_KEY !== 'undefined' ? SM_SETTINGS_KEY : 'smSettings');
+      if (!raw) { outlineRunSetupWizard(); return; }
+      var data = JSON.parse(raw);
+      if (data.outlineMachineZTravel == null) { outlineRunSetupWizard(); }
+    } catch(e) {}
+    outlineUpdateDepthModeUI();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _check);
+  } else {
+    _check();
+  }
+})();

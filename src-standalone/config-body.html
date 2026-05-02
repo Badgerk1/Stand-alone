@@ -1582,12 +1582,20 @@
             <input type="number" id="outlineProbeDown" value="5" step="0.5" min="0.5">
           </div>
           <div class="field">
-            <label><span class="tooltip">Surface Probe Search Depth (mm)<span class="tip-icon">?</span><span class="tip">Minimum Z distance the Surface Reference Probe will search downward from the machine ceiling. Increase this to match your machine&#39;s full Z travel so the probe always reaches the workpiece even when work coordinates are not pre-set. Default: 200.</span></span></label>
-            <input type="number" id="outlineSurfRefMaxPlunge" value="200" step="10" min="10">
+            <label><span class="tooltip">Machine Z Travel (mm)<span class="tip-icon">?</span><span class="tip">Total Z-axis travel of your machine (from home/ceiling to maximum downward position). Used to cap the Phase 1 Surface Reference Probe search depth to travel&#8722;5 mm so soft-limit alarms are avoided. Default: 165.</span></span></label>
+            <input type="number" id="outlineMachineZTravel" value="165" step="1" min="10" oninput="outlineUpdateDepthModeUI()">
           </div>
           <div class="field">
-            <label><span class="tooltip">Machine Z Travel (mm)<span class="tip-icon">?</span><span class="tip">Total Z-axis travel of your machine (from home/ceiling to maximum downward position). Used to cap the Phase 1 Surface Reference Probe search depth to travel&#8722;5 mm so soft-limit alarms are avoided. Default: 165.</span></span></label>
-            <input type="number" id="outlineMachineZTravel" value="165" step="1" min="10">
+            <label><span class="tooltip">Surface Probe Search Depth<span class="tip-icon">?</span><span class="tip">Auto mode computes the effective search depth as Machine Z Travel &#8722; 5 mm (recommended for soft-limit safety). Custom lets you enter a specific depth, but it will still be clamped to travel&#8722;5.</span></span></label>
+            <select id="outlineSurfProbeDepthMode" onchange="outlineUpdateDepthModeUI()">
+              <option value="auto">Auto (recommended)</option>
+              <option value="custom">Custom</option>
+            </select>
+            <span id="outlineSurfProbeDepthHint" class="mini" style="display:block;margin-top:4px"></span>
+          </div>
+          <div class="field" id="outlineSurfRefMaxPlungeField">
+            <label><span class="tooltip">Custom Search Depth (mm)<span class="tip-icon">?</span><span class="tip">Minimum Z distance the Surface Reference Probe will search downward from the machine ceiling. Will be clamped to Machine Z Travel &#8722; 5 mm for safety.</span></span></label>
+            <input type="number" id="outlineSurfRefMaxPlunge" value="200" step="10" min="10">
           </div>
           <div class="field" style="grid-column:1 / -1">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1598,6 +1606,7 @@
         </div>
         <div class="btn-row" style="margin-top:10px">
           <button class="btn ghost" onclick="flashSaveButton(this);saveSettings()">&#128190; Save Settings</button>
+          <button class="btn ghost" onclick="outlineRunSetupWizard()" style="border-color:#845ef7;color:#c0aaf7">&#129497; Setup Wizard</button>
         </div>
       </div>
 
@@ -1770,6 +1779,30 @@
       </div>
 
     </div><!-- /pane-outline -->
+
+  <!-- ── OUTLINE SETUP WIZARD MODAL ───────────────────────────────────────── -->
+  <div id="outline-wizard-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99990;background:rgba(0,0,0,0.65);align-items:center;justify-content:center">
+    <div style="background:var(--panel,#171c26);border:1px solid var(--line,#2b3444);border-radius:14px;padding:22px 24px;width:min(440px,94vw);color:var(--text,#e8eef9);font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">&#129497; Outline Probe Setup Wizard</div>
+      <div style="color:var(--muted,#9aa8bf);font-size:12px;margin-bottom:16px">Enter your machine Z travel once and the app will automatically compute a safe surface probe depth.</div>
+      <div class="field" style="margin-bottom:14px">
+        <label style="color:var(--muted,#9aa8bf);display:block;margin-bottom:5px">Machine Z Travel (mm)</label>
+        <input type="number" id="wizard-z-travel" value="165" step="1" min="10" style="width:100%;border:1px solid var(--line,#2b3444);background:var(--panel2,#1c2330);color:var(--text,#e8eef9);border-radius:10px;padding:10px;font:inherit" oninput="outlineWizardUpdateHint()">
+        <span id="wizard-hint" style="display:block;margin-top:5px;font-size:11px;color:var(--accent,#6ea8ff)"></span>
+      </div>
+      <div class="field" style="margin-bottom:18px">
+        <label style="color:var(--muted,#9aa8bf);display:block;margin-bottom:5px">Surface Probe Depth Mode</label>
+        <select id="wizard-depth-mode" style="width:100%;border:1px solid var(--line,#2b3444);background:var(--panel2,#1c2330);color:var(--text,#e8eef9);border-radius:10px;padding:10px;font:inherit">
+          <option value="auto" selected>Auto (recommended) &#8212; uses Z Travel &#8722; 5 mm</option>
+          <option value="custom">Custom &#8212; enter depth manually</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn ghost" onclick="outlineCloseSetupWizard()" style="padding:8px 16px">Cancel</button>
+        <button class="btn" onclick="outlineSaveSetupWizard()" style="padding:8px 16px;background:linear-gradient(180deg,#845ef7,#6b44e0);border-color:#a486f9">Save &amp; Continue</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── FOOTER ─────────────────────────────────────────────────────────── -->
   <div class="footer">

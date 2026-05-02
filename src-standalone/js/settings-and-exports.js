@@ -125,6 +125,7 @@ function getSettingsFromUI() {
     outlineClearZ:               n('outlineClearZ'),
     outlineProbeDown:            n('outlineProbeDown'),
     outlineSurfRefMaxPlunge:     n('outlineSurfRefMaxPlunge'),
+    outlineSurfProbeDepthMode:   s('outlineSurfProbeDepthMode'),
     outlineMachineZTravel:       n('outlineMachineZTravel'),
     outlineGridSource:           s('outlineGridSource'),
     outlineGridMargin:           n('outlineGridMargin'),
@@ -322,6 +323,9 @@ function loadSettings() {
       sv('outlineSurfRefMaxPlunge', _srmp);
     }
   }
+  // Migration B: if no mode stored (existing users), default to 'auto'.
+  var _mode = (data.outlineSurfProbeDepthMode === 'custom') ? 'custom' : 'auto';
+  sv('outlineSurfProbeDepthMode', _mode);
   if (data.outlineGridSource  != null) sv('outlineGridSource',  data.outlineGridSource);
   if (data.outlineMachineZTravel != null) {
     var _mzt = Math.max(10, Number(data.outlineMachineZTravel));
@@ -343,6 +347,7 @@ function loadSettings() {
   try { calcProbeAutoTotalLength(); } catch(e) {}
   try { updateOutlineCountHelpers(); } catch(e) {}
   try { updateOutlineGridCountHelpers(); } catch(e) {}
+  try { outlineUpdateDepthModeUI(); } catch(e) {}
 }
 function resetSettings() {
   var defaults = {
