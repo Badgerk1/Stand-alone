@@ -24,6 +24,7 @@ function stopOutlineScan() {
   _stopRequested   = true;
   smStopFlag       = true;
   outlineAppendLog('Stop requested.');
+  smLogProbe('OUTLINE: Stop requested.');
   outlineSetStatus('Stopping\u2026', 'warn');
   setFooterStatus('Stopping\u2026', 'warn');
   stopNowAndSafeHome('outline').catch(function(e){
@@ -40,6 +41,7 @@ function recoverOutlineLog() {
   var saved = localStorage.getItem('outlineLogBackup');
   if (!saved) {
     outlineAppendLog('No saved log found in localStorage.');
+    smLogProbe('OUTLINE: No saved log found in localStorage.');
     return;
   }
   var logEl = document.getElementById('outline-log');
@@ -51,6 +53,7 @@ function recoverOutlineLog() {
     }
   }
   outlineAppendLog('Recovered ' + saved.split('\n').length + ' log lines from last session.');
+  smLogProbe('OUTLINE: Recovered ' + saved.split('\n').length + ' log lines from last session.');
 }
 
 // ── Read outline settings ─────────────────────────────────
@@ -190,11 +193,13 @@ async function runOutlineSurfaceProbe() {
   try {
     var cfg = _outlineSettings();
     outlineAppendLog('Phase 1: Surface Reference Probe');
+    smLogProbe('OUTLINE: Phase 1: Surface Reference Probe');
     await requireStartupHomingPreflight('Outline Surface Probe');
 
     // 1. Retract to machine Z=0 (absolute ceiling) — guarantees clearance
     //    when surface Z is unknown and work Z zero may be below the wood.
     outlineAppendLog('RETRACT: Z to machine Z=0 (top of travel) for safe lateral move');
+    smLogProbe('OUTLINE: RETRACT: Z to machine Z=0 (top of travel) for safe lateral move');
     await moveMachineZAbs(0, cfg.retractFeed);
     await sleep(50);
     await waitForIdleWithTimeout(30000);
@@ -204,6 +209,7 @@ async function runOutlineSurfaceProbe() {
     var cx = cfg.x0 + cfg.xLen / 2;
     var cy = cfg.y0 + cfg.yLen / 2;
     outlineAppendLog('TRAVEL: diagonal to center X=' + cx.toFixed(3) + ' Y=' + cy.toFixed(3) + ' at F' + cfg.fastFeed);
+    smLogProbe('OUTLINE: TRAVEL: diagonal to center X=' + cx.toFixed(3) + ' Y=' + cy.toFixed(3) + ' at F' + cfg.fastFeed);
     await moveAbs(cx, cy, null, cfg.fastFeed);
 
     // 3. Read current position and calculate safe probe distance.
@@ -227,10 +233,15 @@ async function runOutlineSurfaceProbe() {
       fullPlunge = cfg.surfRefMaxPlunge;
       outlineAppendLog('PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
+      smLogProbe('OUTLINE: PROBE: at machine ceiling (machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
+        '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
     } else {
       // Normal case: work coordinates set up, use work Z + buffer or surfRefMaxPlunge, whichever is larger.
       fullPlunge = Math.max(Math.abs(pos.z) + 5, cfg.surfRefMaxPlunge);
       outlineAppendLog('PROBE: full Z plunge from workZ=' + pos.z.toFixed(3) +
+        ' machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
+        ' distance=' + fullPlunge.toFixed(3));
+      smLogProbe('OUTLINE: PROBE: full Z plunge from workZ=' + pos.z.toFixed(3) +
         ' machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         ' distance=' + fullPlunge.toFixed(3));
     }
@@ -241,6 +252,7 @@ async function runOutlineSurfaceProbe() {
     // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
     var probeTimeMs = Math.ceil((fullPlunge / cfg.probeFeed) * 60000) + 10000;
     outlineAppendLog('PROBE: switching to G91 (relative) mode');
+    smLogProbe('OUTLINE: PROBE: switching to G91 (relative) mode');
     await sendCommand('G91');
     await waitForIdleWithTimeout();
     // Log a controller snapshot just before issuing G38.2 — aids alarm diagnosis.
@@ -253,11 +265,22 @@ async function runOutlineSurfaceProbe() {
       ' WPos=X' + (snap.x != null ? snap.x.toFixed(3) : '?') +
       ' Y' + (snap.y != null ? snap.y.toFixed(3) : '?') +
       ' Z' + (snap.z != null ? snap.z.toFixed(3) : '?'));
+    smLogProbe('OUTLINE: DEBUG SNAP: status=' + snap.status +
+      ' Pn=' + (snap.raw && snap.raw.Pn ? snap.raw.Pn : 'none') +
+      ' probe=' + (snap.probeTriggered ? 'triggered' : 'open') +
+      ' MPos=' + (snap.machineX != null && snap.machineY != null && snap.machineZ != null
+        ? 'X' + snap.machineX.toFixed(3) + ' Y' + snap.machineY.toFixed(3) + ' Z' + snap.machineZ.toFixed(3)
+        : 'n/a') +
+      ' WPos=X' + (snap.x != null ? snap.x.toFixed(3) : '?') +
+      ' Y' + (snap.y != null ? snap.y.toFixed(3) : '?') +
+      ' Z' + (snap.z != null ? snap.z.toFixed(3) : '?'));
     outlineAppendLog('PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
+    smLogProbe('OUTLINE: PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
     await sendCommand('G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0), probeTimeMs);
     await sleep(50);
     await waitForIdleWithTimeout(30000);
     outlineAppendLog('PROBE: restoring G90 (absolute) mode');
+    smLogProbe('OUTLINE: PROBE: restoring G90 (absolute) mode');
     await sendCommand('G90');
     await waitForIdleWithTimeout();
 
@@ -266,6 +289,8 @@ async function runOutlineSurfaceProbe() {
     var distTraveled = pos.z - endPos.z;
     outlineAppendLog('PROBE RESULT: pinTriggered=' + pinTriggered +
       ' startZ=' + pos.z.toFixed(3) + ' endZ=' + endPos.z.toFixed(3) + ' traveled=' + distTraveled.toFixed(3));
+    smLogProbe('OUTLINE: PROBE RESULT: pinTriggered=' + pinTriggered +
+      ' startZ=' + pos.z.toFixed(3) + ' endZ=' + endPos.z.toFixed(3) + ' traveled=' + distTraveled.toFixed(3));
 
     if (!pinTriggered && distTraveled >= (fullPlunge - 0.5)) {
       throw new Error('Surface probe: No contact in full Z travel range (' + fullPlunge.toFixed(1) + 'mm)');
@@ -273,6 +298,7 @@ async function runOutlineSurfaceProbe() {
 
     var surfZ = endPos.z;
     outlineAppendLog('Surface Z established: ' + surfZ.toFixed(4));
+    smLogProbe('OUTLINE: Surface Z established: ' + surfZ.toFixed(4));
 
     _outlineSetSurfaceZField(surfZ);
     outlineSetProgress(50);
@@ -289,16 +315,19 @@ async function runOutlineSurfaceProbe() {
     outlineSetProgress(100);
     outlineSetStatus('Surface Z = ' + surfZ.toFixed(4) + ' \u2013 ready', 'good');
     outlineAppendLog('Phase 1 complete. Surface Z=' + surfZ.toFixed(4) + '. Returned to X0 Y0.');
+    smLogProbe('OUTLINE: Phase 1 complete. Surface Z=' + surfZ.toFixed(4) + '. Returned to X0 Y0.');
     setFooterStatus('Surface probe done \u2013 Z=' + surfZ.toFixed(4), 'good');
 
   } catch(e) {
     if (e.message === 'STOP_REQUESTED' || e.message === 'Stopped by user') {
       outlineAppendLog('Stopped by user.');
+      smLogProbe('OUTLINE: Stopped by user.');
       outlineSetStatus('Stopped', 'warn');
       setFooterStatus('Outline stopped', 'warn');
       // Safety retract/home is handled by stopNowAndSafeHome — do not call here.
     } else {
       outlineAppendLog('ERROR: ' + e.message);
+      smLogProbe('OUTLINE: ERROR: ' + e.message);
       outlineSetStatus('Error: ' + e.message, 'error');
       setFooterStatus('Outline error: ' + e.message, 'error');
       await _outlineSafetyRetract();
