@@ -308,7 +308,19 @@ function loadSettings() {
   if (data.outlineRetractFeed != null) sv('outlineRetractFeed', data.outlineRetractFeed);
   if (data.outlineClearZ      != null) sv('outlineClearZ',      data.outlineClearZ);
   if (data.outlineProbeDown        != null) sv('outlineProbeDown',        data.outlineProbeDown);
-  if (data.outlineSurfRefMaxPlunge != null) sv('outlineSurfRefMaxPlunge', data.outlineSurfRefMaxPlunge);
+  if (data.outlineSurfRefMaxPlunge != null) {
+    // Clamp to safe minimum (≥10 mm). A persisted value below 10 mm (e.g. an old 5 mm default)
+    // causes ALARM:5 because the surface reference probe cannot reach the workpiece.
+    // Reset to 200 mm (full-travel default) when the saved value is unsafe.
+    var _srmp = Number(data.outlineSurfRefMaxPlunge);
+    if (!isFinite(_srmp) || _srmp < 10) {
+      console.warn('[loadSettings] outlineSurfRefMaxPlunge=' + _srmp +
+        ' is below safe minimum (10 mm); resetting to 200 mm to prevent ALARM:5');
+      sv('outlineSurfRefMaxPlunge', 200);
+    } else {
+      sv('outlineSurfRefMaxPlunge', _srmp);
+    }
+  }
   if (data.outlineGridSource  != null) sv('outlineGridSource',  data.outlineGridSource);
   if (data.outlineGridMargin  != null) sv('outlineGridMargin',  data.outlineGridMargin);
   if (data.outlineGridEdgeMarginMm != null) sv('outlineGridEdgeMarginMm', data.outlineGridEdgeMarginMm);
