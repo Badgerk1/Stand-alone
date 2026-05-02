@@ -240,7 +240,12 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   // Issue the probe move and require contact within maxPlunge.
   // G38.2 is used to match the plugin behavior - controller will alarm if no contact
   // is made within maxPlunge distance, providing immediate feedback of probe issues.
-  var probeCmd = 'G91 G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed;
+  // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.2 executes.
+  // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
+  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: switching to G91 (relative) mode');
+  await sendCommand('G91');
+  await waitForIdleWithTimeout();
+  var probeCmd = 'G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed;
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: sending command: ' + probeCmd);
   pluginDebug('smPlungeProbe: sending: ' + probeCmd);
   var _plungeStart = _smTimingEnabled ? Date.now() : 0;
@@ -249,6 +254,10 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: waiting for idle after probe move...');
   await waitForIdleWithTimeout();
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: idle confirmed after probe move');
+  // Restore absolute positioning mode (G90) after relative probe move
+  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: restoring G90 (absolute) mode');
+  await sendCommand('G90');
+  await waitForIdleWithTimeout();
   if (_smTimingEnabled && smTimingStats) {
     var _pMs = Date.now() - _plungeStart;
     smTimingStats.plunges.totalMs += _pMs;

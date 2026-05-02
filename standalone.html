@@ -9033,7 +9033,12 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   // Issue the probe move and require contact within maxPlunge.
   // G38.2 is used to match the plugin behavior - controller will alarm if no contact
   // is made within maxPlunge distance, providing immediate feedback of probe issues.
-  var probeCmd = 'G91 G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed;
+  // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.2 executes.
+  // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
+  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: switching to G91 (relative) mode');
+  await sendCommand('G91');
+  await waitForIdleWithTimeout();
+  var probeCmd = 'G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed;
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: sending command: ' + probeCmd);
   pluginDebug('smPlungeProbe: sending: ' + probeCmd);
   var _plungeStart = _smTimingEnabled ? Date.now() : 0;
@@ -9042,6 +9047,10 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: waiting for idle after probe move...');
   await waitForIdleWithTimeout();
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: idle confirmed after probe move');
+  // Restore absolute positioning mode (G90) after relative probe move
+  smLogProbe('[PLUGIN DEBUG] smPlungeProbe: restoring G90 (absolute) mode');
+  await sendCommand('G90');
+  await waitForIdleWithTimeout();
   if (_smTimingEnabled && smTimingStats) {
     var _pMs = Date.now() - _plungeStart;
     smTimingStats.plunges.totalMs += _pMs;
@@ -11295,11 +11304,19 @@ async function runOutlineSurfaceProbe() {
 
     // 4. G38.2 plunge — stops on contact, errors only if nothing touched
     // Calculate timeout: travel time at probe feed rate + 10s buffer
+    // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.2 executes.
+    // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
     var probeTimeMs = Math.ceil((fullPlunge / cfg.probeFeed) * 60000) + 10000;
-    outlineAppendLog('PROBE: G91 G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
-    await sendCommand('G91 G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0), probeTimeMs);
+    outlineAppendLog('PROBE: switching to G91 (relative) mode');
+    await sendCommand('G91');
+    await waitForIdleWithTimeout();
+    outlineAppendLog('PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
+    await sendCommand('G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0), probeTimeMs);
     await sleep(50);
     await waitForIdleWithTimeout(30000);
+    outlineAppendLog('PROBE: restoring G90 (absolute) mode');
+    await sendCommand('G90');
+    await waitForIdleWithTimeout();
 
     var endPos = await getWorkPosition();
     var pinTriggered = await smGetProbeTriggered();
@@ -11396,9 +11413,15 @@ async function _surfStepProbe(probeDown, probeFeed) {
   outlineAppendLog('PROBE: surface plunge at X=' + startPos.x.toFixed(3) +
     ' Y=' + startPos.y.toFixed(3) + ' Z=' + startZ.toFixed(3) +
     ' depth=' + probeDown.toFixed(3) + ' F' + probeFeed.toFixed(0));
-  await sendCommand('G91 G38.3 Z-' + Math.abs(probeDown).toFixed(4) + ' F' + probeFeed.toFixed(0));
+  // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.3 executes.
+  // Some GRBL controllers apply modal commands at end of line, so G91+G38.3 on same line may fail.
+  await sendCommand('G91');
+  await waitForIdleWithTimeout();
+  await sendCommand('G38.3 Z-' + Math.abs(probeDown).toFixed(4) + ' F' + probeFeed.toFixed(0));
   await sleep(50);
   await waitForIdleWithTimeout(30000);
+  await sendCommand('G90');
+  await waitForIdleWithTimeout();
   outlineCheckStop(); // Cancel stale probe result if stop was pressed while waiting
   var pos = await getWorkPosition();
   var distanceTraveled = startZ - pos.z;
@@ -12053,13 +12076,21 @@ async function _outlinePlungeProbe(maxPlunge, probeFeed, clearanceZ) {
 
   // Timeout: travel time (distance mm / feed mm·min⁻¹ × 60000 ms·min⁻¹) + 10 s buffer
   var probeTimeMs = Math.ceil((maxPlunge / probeFeed) * 60000) + 10000;
-  outlineAppendLog('PROBE: G91 G38.2 Z-' + maxPlunge.toFixed(4) +
+  outlineAppendLog('PROBE: switching to G91 (relative) mode');
+  outlineAppendLog('PROBE: G38.2 Z-' + maxPlunge.toFixed(4) +
     ' F' + probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms' +
     ' (clearanceZ=' + clearanceZ.toFixed(3) + ')');
 
-  await sendCommand('G91 G38.2 Z-' + maxPlunge.toFixed(4) + ' F' + probeFeed.toFixed(0), probeTimeMs);
+  // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.2 executes.
+  // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
+  await sendCommand('G91');
+  await waitForIdleWithTimeout();
+  await sendCommand('G38.2 Z-' + maxPlunge.toFixed(4) + ' F' + probeFeed.toFixed(0), probeTimeMs);
   await sleep(50);
   await waitForIdleWithTimeout(probeTimeMs);
+  outlineAppendLog('PROBE: restoring G90 (absolute) mode');
+  await sendCommand('G90');
+  await waitForIdleWithTimeout();
 
   var endPos   = await getWorkPosition();
   var traveled = startZ - endPos.z;
@@ -12099,13 +12130,21 @@ async function _outlinePlungeProbeG383(maxPlunge, probeFeed, clearanceZ) {
   }
 
   var probeTimeMs = Math.ceil((maxPlunge / probeFeed) * 60000) + 10000;
-  outlineAppendLog('PROBE: G91 G38.3 Z-' + maxPlunge.toFixed(4) +
+  outlineAppendLog('PROBE: switching to G91 (relative) mode');
+  outlineAppendLog('PROBE: G38.3 Z-' + maxPlunge.toFixed(4) +
     ' F' + probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms' +
     ' (clearanceZ=' + clearanceZ.toFixed(3) + ')');
 
-  await sendCommand('G91 G38.3 Z-' + maxPlunge.toFixed(4) + ' F' + probeFeed.toFixed(0), probeTimeMs);
+  // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.3 executes.
+  // Some GRBL controllers apply modal commands at end of line, so G91+G38.3 on same line may fail.
+  await sendCommand('G91');
+  await waitForIdleWithTimeout();
+  await sendCommand('G38.3 Z-' + maxPlunge.toFixed(4) + ' F' + probeFeed.toFixed(0), probeTimeMs);
   await sleep(50);
   await waitForIdleWithTimeout(probeTimeMs);
+  outlineAppendLog('PROBE: restoring G90 (absolute) mode');
+  await sendCommand('G90');
+  await waitForIdleWithTimeout();
 
   var endPos   = await getWorkPosition();
   var traveled = startZ - endPos.z;
