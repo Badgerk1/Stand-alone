@@ -11310,6 +11310,23 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('PROBE: switching to G91 (relative) mode');
     await sendCommand('G91');
     await waitForIdleWithTimeout();
+    // Log a controller snapshot just before issuing G38.2 — aids alarm diagnosis.
+    try {
+      var _dbgSnap = await getMachineSnapshot();
+      var _dbgPn   = (_dbgSnap.raw && _dbgSnap.raw.Pn) ? _dbgSnap.raw.Pn : 'none';
+      var _dbgMPos = (_dbgSnap.machineX != null && _dbgSnap.machineY != null && _dbgSnap.machineZ != null)
+        ? 'X' + _dbgSnap.machineX.toFixed(3) + ' Y' + _dbgSnap.machineY.toFixed(3) + ' Z' + _dbgSnap.machineZ.toFixed(3)
+        : 'n/a';
+      outlineAppendLog('DEBUG SNAP: status=' + _dbgSnap.status +
+        ' Pn=' + _dbgPn +
+        ' probe=' + (_dbgSnap.probeTriggered ? 'triggered' : 'open') +
+        ' MPos=' + _dbgMPos +
+        ' WPos=X' + (_dbgSnap.x != null ? _dbgSnap.x.toFixed(3) : '?') +
+        ' Y' + (_dbgSnap.y != null ? _dbgSnap.y.toFixed(3) : '?') +
+        ' Z' + (_dbgSnap.z != null ? _dbgSnap.z.toFixed(3) : '?'));
+    } catch (_dbgErr) {
+      outlineAppendLog('DEBUG SNAP: (snapshot unavailable: ' + _dbgErr.message + ')');
+    }
     outlineAppendLog('PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
     await sendCommand('G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0), probeTimeMs);
     await sleep(50);

@@ -31,6 +31,11 @@ var _wsStatusQueue = []; // [{resolve, reject, _tid}] waiting for '<…>' status
 // Last probe result received on a [PRB:x,y,z:n] line
 var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet consumed
 
+// Diagnostic tracking — last raw status line and last sent G-code command.
+// Stored so that ALARM errors can include context for log readability.
+var _wsLastStatusLine  = ''; // last '<…>' status report line received from controller
+var _wsLastSentCommand = ''; // last G-code command string queued via sendCommand()
+
 // ── Connection UI injection ───────────────────────────────────────────────────
 // Replaces the existing "Ready" span in #hdr-conn with host/port inputs,
 // a Connect/Disconnect button, and a live status indicator.
@@ -163,7 +168,9 @@ function wsConnect() {
       _wsLineBuf   = '';
       _wsOkQueue     = [];
       _wsStatusQueue = [];
-      _wsProbeTriggered = false;
+      _wsProbeTriggered  = false;
+      _wsLastStatusLine  = '';
+      _wsLastSentCommand = '';
       _wsSetUI(true);
       setFooterStatus('WebSocket connected to ' + url + ' \u2014 sending soft reset\u2026', 'ok');
       // Ctrl-X soft reset — puts GRBL into a known idle state
@@ -233,6 +240,7 @@ function _wsHandleLine(line) {
 
   // GRBL status report  <Status|Key:Val|…>
   if (line.charAt(0) === '<') {
+    _wsLastStatusLine = line; // retain for ALARM diagnostics
     var r = _wsStatusQueue.shift();
     if (r) { clearTimeout(r._tid); r.resolve(line); }
     return;
@@ -262,9 +270,11 @@ function _wsHandleLine(line) {
     return;
   }
 
-  // ALARM:N — reject all pending commands
+  // ALARM:N — reject all pending commands; include last status + last command for diagnostics
   if (line.toUpperCase().indexOf('ALARM:') === 0) {
-    var err = new Error('Machine in alarm state: ' + line);
+    var _snapHint = _wsLastStatusLine  ? ' | snap: '    + _wsLastStatusLine  : '';
+    var _cmdHint  = _wsLastSentCommand ? ' | last cmd: ' + _wsLastSentCommand : '';
+    var err = new Error('Machine in alarm state: ' + line + _snapHint + _cmdHint);
     _wsOkQueue.forEach(function (r) { clearTimeout(r._tid); r.reject(err); });
     _wsOkQueue = [];
     return;
@@ -290,6 +300,7 @@ async function sendCommand(gcode, timeoutMs) {
   if (!_wsConnected) {
     throw new Error('Not connected. Click \u201cConnect\u201d and enter the controller IP.');
   }
+  _wsLastSentCommand = gcode; // record for ALARM diagnostics (before any early return)
   var ms = (timeoutMs != null) ? timeoutMs : 15000;
   pluginDebug('sendCommand: ' + gcode);
   console.log('[' + tsMs() + '] SEND: ' + gcode);
