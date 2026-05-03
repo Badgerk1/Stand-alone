@@ -101,8 +101,22 @@ function smGetProbeTriggered() {
 // feed - travel feed rate in mm/min
 async function smPerformInitialClearanceLift(logMode, liftAmount, feed) {
   var logFn = (logMode === 'face') ? function(m) { logLine('face', m); } : smLogProbe;
-  logFn('INITIAL LIFT: Raising Z by ' + liftAmount.toFixed(3) + ' coords before first probe point...');
   pluginDebug('smPerformInitialClearanceLift: logMode=' + logMode + ' liftAmount=' + liftAmount + ' feed=' + feed);
+
+  // Check current position to avoid soft limit alarm if already at/near machine Z=0
+  var snap = await getMachineSnapshot();
+  var currentWorkZ = snap.z;
+  var currentMachineZ = snap.machineZ;
+  pluginDebug('smPerformInitialClearanceLift: currentWorkZ=' + currentWorkZ + ' currentMachineZ=' + currentMachineZ);
+
+  // If machine Z is at or very close to 0 (within 0.5mm), skip the lift to avoid soft limit alarm
+  if (currentMachineZ != null && currentMachineZ >= -0.5 && currentMachineZ <= 0.5) {
+    logFn('INITIAL LIFT: Skipping lift - Z already at machine zero (machineZ=' + currentMachineZ.toFixed(3) + ')');
+    pluginDebug('smPerformInitialClearanceLift: skipped lift (machineZ=' + currentMachineZ + ' is at/near zero)');
+    return;
+  }
+
+  logFn('INITIAL LIFT: Raising Z by ' + liftAmount.toFixed(3) + ' coords before first probe point...');
   var liftCmd = 'G91 G1 Z' + liftAmount.toFixed(3) + ' F' + feed;
   logFn('[PLUGIN DEBUG] smPerformInitialClearanceLift: sending command: ' + liftCmd);
   await sendCommand(liftCmd);
@@ -477,6 +491,21 @@ function runSurfaceProbing() {
     smLogProbe('Initial clearance lift disabled: starting from current Z position.');
   }
 
+  // Preflight check: ensure machine is homed, not in alarm, and probe is clear
+  requireStartupHomingPreflight('surface probe').catch(function(preflightErr) {
+    smLogProbe('ERROR: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
+    smSetProbeStatus('Preflight check failed', 'err');
+    pluginDebug('runSurfaceProbing: preflight check failed: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
+    document.getElementById('sm-btn-run-probe').disabled = false;
+    document.getElementById('sm-btn-stop-probe').disabled = true;
+    var _failCb = _smProbingCompleteCallback;
+    _smProbingCompleteCallback = null;
+    if (_failCb) { try { _failCb(false); } catch(_e) {} }
+    throw preflightErr; // Re-throw to prevent probe sequence from starting
+  }).then(function() {
+    pluginDebug('runSurfaceProbing: preflight check passed, starting probe sequence');
+  }).then(function() {
+
   function probeRow(ri) {
     if (ri >= cfg.rowCount) return Promise.resolve();
     var rowY = cfg.minY + ri * cfg.rowSpacing;
@@ -591,6 +620,7 @@ function runSurfaceProbing() {
       console.error('Surface probe completion callback error:', cbErr);
     }
   });
+  }); // Close the .then() block for preflight check
 }
 
 function stopSurfaceProbing() {
