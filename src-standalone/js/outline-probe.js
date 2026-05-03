@@ -165,6 +165,10 @@ async function _outlineSafetyRetract() {
 
 // ── Absolute travel helper — retract Z first, then move X/Y diagonally ───────
 // Uses G90 absolute moves so Z never exceeds soft limits regardless of start Z.
+// After the XY move, verifies the reported position is within TRAVEL_TOL mm of
+// the commanded target.  A mismatch larger than this indicates a coordinate frame
+// problem and aborts before any plunge/probe move can occur.
+var _OUTLINE_TRAVEL_TOL = 2.0; // mm — abort if post-travel position differs by more than this
 async function _outlineAbsTravel(targetX, targetY, safeTravelZ, fastFeed, retractFeed) {
   var pos = await getWorkPosition();
   outlineAppendLog('TRAVEL: current pos X=' + pos.x.toFixed(3) + ' Y=' + pos.y.toFixed(3) + ' Z=' + pos.z.toFixed(3));
@@ -175,7 +179,22 @@ async function _outlineAbsTravel(targetX, targetY, safeTravelZ, fastFeed, retrac
     await waitForIdleWithTimeout(30000);
   }
   outlineAppendLog('TRAVEL: diagonal to X=' + targetX.toFixed(3) + ' Y=' + targetY.toFixed(3) + ' at F' + fastFeed.toFixed(0));
-  await moveAbs(targetX, targetY, null, fastFeed);
+  var postPos = await moveAbs(targetX, targetY, null, fastFeed);
+  // moveAbs returns the position from waitForIdleWithTimeout which can be null
+  // if the controller reports only MPos without WCO/WPos (coordinate-frame issue).
+  // Fall back to an explicit position query to get the best available reading.
+  if (!postPos) postPos = await getWorkPosition();
+  var dx = Math.abs(postPos.x - targetX);
+  var dy = Math.abs(postPos.y - targetY);
+  if (dx > _OUTLINE_TRAVEL_TOL || dy > _OUTLINE_TRAVEL_TOL) {
+    throw new Error(
+      'TRAVEL VERIFICATION FAILED: commanded X=' + targetX.toFixed(3) + ' Y=' + targetY.toFixed(3) +
+      ' but controller reports X=' + postPos.x.toFixed(3) + ' Y=' + postPos.y.toFixed(3) +
+      ' (err X:' + dx.toFixed(3) + 'mm Y:' + dy.toFixed(3) + 'mm, tol=' + _OUTLINE_TRAVEL_TOL + 'mm).\n' +
+      'Possible cause: controller reporting MPos without WCO — work coordinates cannot be trusted.\n' +
+      'Check $10 status mask and active WCS. Aborting to prevent unsafe plunge.'
+    );
+  }
 }
 
 // ── Phase 1: Surface reference probe ─────────────────────
@@ -485,7 +504,9 @@ async function _runRowScan(cfg, surfZ) {
       outlineAppendLog('SKIP SURFACE PROBE: LOWER Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var skipRightEdgePos = await _probeHorizEdge('X', xLeft - 1, cfg.faceFeed, safeTravelZ);
+      // Reverse probe -X back toward the approach side (cfg.x0 - cfg.approachDist) to find the right edge
+      var skipReverseXTarget = cfg.x0 - cfg.approachDist;
+      var skipRightEdgePos = await _probeHorizEdge('X', skipReverseXTarget, cfg.faceFeed, safeTravelZ);
       if (skipRightEdgePos.probeTriggered) {
         xRight = skipRightEdgePos.x;
         outlineAppendLog('SKIP SURFACE PROBE: Row Y=' + rowY.toFixed(3) + ' Right edge TRIGGERED at X=' + xRight.toFixed(3) + ' Z=' + skipRightEdgePos.z.toFixed(3));
@@ -555,7 +576,11 @@ async function _runRowScan(cfg, surfZ) {
       outlineAppendLog('LOWER: Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var rightEdgePos = await _probeHorizEdge('X', xLeft - 1, cfg.faceFeed, safeTravelZ);
+      // Reverse probe -X back toward the approach side to find the exact right edge.
+      // Target cfg.x0 - cfg.approachDist (the near-side approach coordinate) rather
+      // than xLeft-1 to avoid unbounded travel if coordinates are misreported.
+      var rightReverseTarget = cfg.x0 - cfg.approachDist;
+      var rightEdgePos = await _probeHorizEdge('X', rightReverseTarget, cfg.faceFeed, safeTravelZ);
       if (rightEdgePos.probeTriggered) {
         xRight = rightEdgePos.x;
         outlineAppendLog('Row Y=' + rowY.toFixed(3) + ' Right edge TRIGGERED at X=' + xRight.toFixed(3) + ' Z=' + rightEdgePos.z.toFixed(3));
@@ -641,7 +666,9 @@ async function _runColScan(cfg, surfZ) {
       outlineAppendLog('SKIP SURFACE PROBE: LOWER Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var skipTopEdgePos = await _probeHorizEdge('Y', yBottom - 1, cfg.faceFeed, safeTravelZ);
+      // Reverse probe -Y back toward the approach side (cfg.y0 - cfg.approachDist) to find the top edge
+      var skipTopReverseTarget = cfg.y0 - cfg.approachDist;
+      var skipTopEdgePos = await _probeHorizEdge('Y', skipTopReverseTarget, cfg.faceFeed, safeTravelZ);
       if (skipTopEdgePos.probeTriggered) {
         yTop = skipTopEdgePos.y;
         outlineAppendLog('SKIP SURFACE PROBE: Col X=' + colX.toFixed(3) + ' Top edge TRIGGERED at Y=' + yTop.toFixed(3) + ' Z=' + skipTopEdgePos.z.toFixed(3));
@@ -711,7 +738,11 @@ async function _runColScan(cfg, surfZ) {
       outlineAppendLog('LOWER: Z to faceZ=' + faceZ.toFixed(3) + ' at F' + cfg.retractFeed);
       await _outlineMoveToZ(faceZ, cfg.retractFeed);
 
-      var topEdgePos = await _probeHorizEdge('Y', yBottom - 1, cfg.faceFeed, safeTravelZ);
+      // Reverse probe -Y back toward the approach side to find the exact top edge.
+      // Target cfg.y0 - cfg.approachDist (the near-side approach coordinate) rather
+      // than yBottom-1 to avoid unbounded travel if coordinates are misreported.
+      var topReverseTarget = cfg.y0 - cfg.approachDist;
+      var topEdgePos = await _probeHorizEdge('Y', topReverseTarget, cfg.faceFeed, safeTravelZ);
       if (topEdgePos.probeTriggered) {
         yTop = topEdgePos.y;
         outlineAppendLog('Col X=' + colX.toFixed(3) + ' Top edge TRIGGERED at Y=' + yTop.toFixed(3) + ' Z=' + topEdgePos.z.toFixed(3));

@@ -36,6 +36,20 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
 var _wsLastStatusLine  = ''; // last '<…>' status report line received from controller
 var _wsLastSentCommand = ''; // last G-code command string queued via sendCommand()
 
+// ── Mini Console ring buffer ──────────────────────────────────────────────────
+// Stores the last _WS_CONSOLE_MAX lines received from the controller,
+// plus echoes of sent commands.  Prevents memory growth on long sessions.
+var _wsConsoleLines = [];
+var _WS_CONSOLE_MAX = 500;
+
+// ── Last parsed WCS (active workspace, e.g. "G54") ────────────────────────────
+var _wsLastWCS = '';
+
+// ── Coordinate availability flag ─────────────────────────────────────────────
+// Set to true after a status report that provides WPos or MPos+WCO so that
+// work coordinates can be derived.  False means only MPos was seen.
+var _wsHaveWorkCoords = false;
+
 // ── Connection UI injection ───────────────────────────────────────────────────
 // Replaces the existing "Ready" span in #hdr-conn with host/port inputs,
 // a Connect/Disconnect button, and a live status indicator.
@@ -68,7 +82,8 @@ var _wsLastSentCommand = ''; // last G-code command string queued via sendComman
              'padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap">' +
       'Connect' +
     '</button>' +
-    '<span id="ws-status" style="font-size:12px;color:var(--muted);white-space:nowrap">&#9675; Not connected</span>';
+    '<span id="ws-status" style="font-size:12px;color:var(--muted);white-space:nowrap">&#9675; Not connected</span>' +
+    '<span id="ws-wcs-display" style="font-size:11px;color:var(--accent2,#5fd38d);white-space:nowrap;display:none"></span>';
 
   // ── Apply tab — adapt buttons for standalone-ws (no ncSender) ──────────────
   // Rename "Load from ncSender" to clarify it is not available here.
@@ -171,6 +186,8 @@ function wsConnect() {
       _wsProbeTriggered  = false;
       _wsLastStatusLine  = '';
       _wsLastSentCommand = '';
+      _wsLastWCS         = '';
+      _wsHaveWorkCoords  = false;
       _wsSetUI(true);
       setFooterStatus('WebSocket connected to ' + url + ' \u2014 sending soft reset\u2026', 'ok');
       // Ctrl-X soft reset — puts GRBL into a known idle state
@@ -238,9 +255,14 @@ function _wsFlushQueues(err) {
 function _wsHandleLine(line) {
   pluginDebug('[ws \u2190] ' + line);
 
+  // Feed every received line into the Mini Console ring buffer
+  _wsConsolePush(line);
+
   // GRBL status report  <Status|Key:Val|…>
   if (line.charAt(0) === '<') {
     _wsLastStatusLine = line; // retain for ALARM diagnostics
+    // Parse WCS and coordinate availability from status line inline
+    _wsUpdateCoordState(line);
     var r = _wsStatusQueue.shift();
     if (r) { clearTimeout(r._tid); r.resolve(line); }
     return;
@@ -284,7 +306,116 @@ function _wsHandleLine(line) {
   console.log('[ws] ' + line);
 }
 
-// ── Low-level send helper ─────────────────────────────────────────────────────
+// ── Coordinate-state update from a raw status line ────────────────────────────
+// Called inline in _wsHandleLine for every '<…>' status line.
+// Updates _wsHaveWorkCoords and _wsLastWCS without full parsing overhead.
+function _wsUpdateCoordState(line) {
+  var inner = line.replace(/^<|>$/g, '');
+  var parts = inner.split('|');
+  var hasWPos = false, hasWCO = false;
+  for (var i = 1; i < parts.length; i++) {
+    var c = parts[i].indexOf(':');
+    if (c < 0) continue;
+    var k = parts[i].slice(0, c).trim();
+    if (k === 'WPos') { hasWPos = true; }
+    if (k === 'WCO')  { hasWCO  = true; }
+    if (k === 'WCS')  { _wsLastWCS = parts[i].slice(c + 1).trim(); }
+  }
+  _wsHaveWorkCoords = hasWPos || hasWCO;
+  // Update WCS display in connection status
+  var wcsEl = document.getElementById('ws-wcs-display');
+  if (wcsEl) {
+    wcsEl.textContent = _wsLastWCS ? 'WCS:' + _wsLastWCS : '';
+    wcsEl.style.display = _wsLastWCS ? '' : 'none';
+  }
+}
+
+// ── Mini Console ring buffer helpers ─────────────────────────────────────────
+function _wsConsolePush(line) {
+  _wsConsoleLines.push(line);
+  if (_wsConsoleLines.length > _WS_CONSOLE_MAX) {
+    _wsConsoleLines.shift();
+  }
+  var out = document.getElementById('ws-console-out');
+  if (!out) return;
+  // Append new line instead of full re-render for performance
+  var atBottom = out.scrollHeight - out.scrollTop - out.clientHeight < 30;
+  out.textContent = _wsConsoleLines.join('\n');
+  if (atBottom) out.scrollTop = out.scrollHeight;
+}
+
+// ── Public Mini Console API ───────────────────────────────────────────────────
+function wsSendConsoleCommand() {
+  var inp = document.getElementById('ws-console-input');
+  if (!inp) return;
+  var cmd = inp.value.trim();
+  if (!cmd) return;
+  inp.value = '';
+  _wsConsoleSend(cmd);
+}
+
+function wsSendConsoleQuick(cmd) {
+  _wsConsoleSend(cmd);
+}
+
+function _wsConsoleSend(cmd) {
+  _wsConsolePush('[→ ' + cmd + ']');
+  if (!_wsConnected) {
+    _wsConsolePush('[not connected]');
+    return;
+  }
+  try {
+    if (_WS_REALTIME[cmd]) {
+      _wsSend(cmd);
+    } else {
+      _wsSend(cmd + '\n');
+    }
+  } catch (e) {
+    _wsConsolePush('[error] ' + e.message);
+  }
+}
+
+// ── Mini Console UI injection ─────────────────────────────────────────────────
+// Injects a "Mini Console / Sender" panel into the Setup tab so the user can
+// send arbitrary commands and see raw controller output without ncSender.
+(function _wsInjectConsole() {
+  var setupPane = document.getElementById('pane-setup');
+  if (!setupPane) return;
+
+  var panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.id = 'ws-console-panel';
+  panel.setAttribute('data-panel-key', 'setup-ws-console');
+  panel.innerHTML =
+    '<div class="box-title">&#128187; Mini Console / Sender <span style="font-size:11px;font-weight:400;color:var(--muted)">(standalone-ws only)</span></div>' +
+    '<div class="probe-chip">Send commands directly to the controller and view raw responses. ' +
+    'Use <code>$G</code>, <code>$#</code>, <code>$$</code>, <code>?</code> to diagnose coordinate settings before probing.</div>' +
+    '<div style="display:flex;gap:6px;margin:8px 0 6px">' +
+      '<input id="ws-console-input" type="text" placeholder="G-code or $ command…" ' +
+        'style="flex:1;background:var(--panel2,#131824);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-family:monospace;font-size:13px" ' +
+        'onkeydown="if(event.key===\'Enter\')wsSendConsoleCommand()">' +
+      '<button class="btn" onclick="wsSendConsoleCommand()" style="white-space:nowrap">&#9658; Send</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">' +
+      '<button class="btn ghost" style="font-size:12px;padding:3px 8px" onclick="wsSendConsoleQuick(\'?\')">?</button>' +
+      '<button class="btn ghost" style="font-size:12px;padding:3px 8px" onclick="wsSendConsoleQuick(\'$G\')">$G</button>' +
+      '<button class="btn ghost" style="font-size:12px;padding:3px 8px" onclick="wsSendConsoleQuick(\'$#\')">$#</button>' +
+      '<button class="btn ghost" style="font-size:12px;padding:3px 8px" onclick="wsSendConsoleQuick(\'$$\')">$$</button>' +
+      '<button class="btn ghost" style="font-size:12px;padding:3px 8px" onclick="wsSendConsoleQuick(\'$I\')">$I</button>' +
+      '<button class="btn ghost" style="font-size:12px;padding:3px 8px;margin-left:auto;color:var(--muted)" ' +
+        'onclick="var o=document.getElementById(\'ws-console-out\');if(o){o.textContent=\'\';} window._wsConsoleLines=[];_wsConsoleLines=[];">&#10005; Clear</button>' +
+    '</div>' +
+    '<textarea id="ws-console-out" readonly ' +
+      'style="width:100%;height:180px;background:#0d1117;color:#7ec8e3;border:1px solid var(--line);border-radius:6px;' +
+             'font-family:monospace;font-size:12px;padding:6px 8px;resize:vertical;box-sizing:border-box;white-space:pre">' +
+    '</textarea>' +
+    '<div class="mini" style="margin-top:5px;color:var(--muted)">Last ' + _WS_CONSOLE_MAX + ' lines buffered. ' +
+    'Coordinate requirements: controller must report <code>WPos</code> or <code>MPos+WCO</code> for safe probing. ' +
+    'If you see only <code>MPos</code> in <code>?</code> output, run <code>$10=2</code> (grblHAL: set status mask to include WPos) ' +
+    'or configure a work offset with <code>G10 L20 P1 X0 Y0 Z0</code>.</div>';
+
+  setupPane.appendChild(panel);
+})();
 function _wsSend(text) {
   if (!_wsSocket || _wsSocket.readyState !== WebSocket.OPEN) {
     throw new Error('WebSocket not connected');
@@ -378,7 +509,15 @@ async function _getState() {
 
 // Parses a GRBL status report line into a machineState object.
 // Handles both <Status|WPos:x,y,z|…> and <Status|MPos:x,y,z|WCO:x,y,z|…> formats.
+// Also captures WCS (active workspace, e.g. G54) when reported by grblHAL.
+// Only the first 3 coordinate components are used for XYZ; extra axes are ignored.
 function _wsParseStatus(line) {
+  // Helper to trim multi-axis coord strings to the first 3 axes (X,Y,Z).
+  // grblHAL with 4+ axes reports e.g. "X,Y,Z,A" — we only need X,Y,Z.
+  function _triAxes(v) {
+    var axes = v.split(',');
+    return axes.slice(0, 3).join(',');
+  }
   var ms = {};
   var inner = line.replace(/^<|>$/g, '');
   var parts = inner.split('|');
@@ -389,9 +528,10 @@ function _wsParseStatus(line) {
     var key = parts[i].slice(0, colon).trim();
     var val = parts[i].slice(colon + 1).trim();
     switch (key) {
-      case 'MPos': ms.MPos = val; break;
-      case 'WPos': ms.WPos = val; break;
-      case 'WCO':  ms.WCO  = val; break;
+      case 'MPos': ms.MPos = _triAxes(val); break;
+      case 'WPos': ms.WPos = _triAxes(val); break;
+      case 'WCO':  ms.WCO  = _triAxes(val); break;
+      case 'WCS':  ms.WCS  = val; break;
       case 'Pn':   ms.Pn   = val; break;
       case 'Bf':   ms.Bf   = val; break;
       case 'Ln':   ms.Ln   = val; break;
@@ -450,6 +590,31 @@ async function requireStartupHomingPreflight(runLabel) {
   if (info.probeTriggered) {
     throw new Error('Probe input is already triggered. Clear the probe before ' + label + '.');
   }
+
+  // ── Coordinate availability check ────────────────────────────────────────────
+  // If the controller only reports MPos (machine coords) without WCO or WPos,
+  // work coordinates cannot be derived and probing will target wrong positions.
+  if (!_wsHaveWorkCoords) {
+    // Make one extra attempt — send ? and wait for a fresh status
+    try {
+      _wsSend('?');
+      await sleep(400);
+    } catch (_e) {}
+  }
+  if (!_wsHaveWorkCoords) {
+    var coordErr =
+      'Controller is not reporting work coordinates.\n' +
+      'Status reports contain only MPos (machine position) without WCO or WPos.\n' +
+      'Work coordinates cannot be derived — ' + label + ' cannot proceed safely.\n\n' +
+      'Fix options:\n' +
+      '  \u2022 Set $10=2 (grblHAL) to report WPos in status (recommended).\n' +
+      '  \u2022 Or $10=0 to report MPos+WCO (also OK).\n' +
+      '  \u2022 Or set a work offset: G10 L20 P1 X0 Y0 Z0 then re-home.\n' +
+      'Use the Mini Console panel (Setup tab) to send these commands.';
+    if (typeof outlineAppendLog === 'function') outlineAppendLog('ERROR: ' + coordErr);
+    throw new Error(coordErr);
+  }
+
   pluginDebug('requireStartupHomingPreflight (standalone-ws) OK: status=' + info.status);
   var note = '(standalone-ws \u2014 homed check skipped; ensure machine is homed before probing)';
   logLine('top',  'Preflight OK: status=' + (info.status || 'Unknown') + ', probe=open ' + note);
