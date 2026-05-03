@@ -8989,7 +8989,11 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
   var lift = Math.max(0.1, Number(document.getElementById('travelContactLift').value) || 5);
   var maxRetries = Math.max(1, Math.round(Number(document.getElementById('travelContactMaxRetries').value) || 5));
 
-  smLogProbe('TRAVEL: lifting Z by ' + clearanceZ.toFixed(3) + ' coords (relative), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+  // Get current position to calculate absolute clearance Z target
+  var currentPos = await getWorkPosition();
+  var targetClearanceZ = currentPos.z + Math.max(5, clearanceZ);
+
+  smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
 
   // Move a single axis to target using one full-distance G38.3 command.
   // If the probe triggers mid-move (stopped short), back off opposite to travel direction,
@@ -9042,11 +9046,10 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
     await attempt();
   }
 
-  // Lift Z by at least 5mm relative from current position (contact point), then travel X/Y.
-  // Using Math.max(5, clearanceZ) ensures the probe pin reliably clears even if the user
-  // configured a small clearanceZ, so smEnsureProbeClear() passes through as a no-op.
-  var effectiveLift = Math.max(5, clearanceZ);
-  var liftCmd = 'G91 G1 Z' + effectiveLift.toFixed(3) + ' F' + travelFeed;
+  // Lift Z to absolute clearance height before lateral travel.
+  // Using absolute positioning (G90) prevents accumulated Z drift that would cause
+  // soft limit alarms (ALARM:4) after multiple probe points.
+  var liftCmd = 'G90 G1 Z' + targetClearanceZ.toFixed(3) + ' F' + travelFeed;
   smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: sending command: ' + liftCmd);
   pluginDebug('smSafeLateralMove: Z-lift cmd: ' + liftCmd);
   var _zLiftStart = _smTimingEnabled ? Date.now() : 0;
@@ -9056,8 +9059,7 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
   await waitForIdleWithTimeout();
   smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: idle confirmed after Z lift');
   if (_smTimingEnabled && smTimingStats) { smTimingStats.zLift.totalMs += Date.now() - _zLiftStart; smTimingStats.zLift.count++; }
-  // Switch back to absolute mode (G90) - modal command, no wait needed
-  await sendCommand('G90');
+
   await moveAxis('X', targetX);
   await moveAxis('Y', targetY);
   var pos = await getWorkPosition();
