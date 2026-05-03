@@ -179,7 +179,7 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
       var travelDir = (target > current) ? 1 : -1;
       var _travelStart = _smTimingEnabled ? Date.now() : 0;
       await sendCommand('G90 G38.3 ' + axis + target.toFixed(3) + ' F' + travelFeed);
-      await sleep(50); // Brief delay to ensure controller starts processing
+      await sleep(20); // Brief delay to ensure controller starts processing
       await waitForIdleWithTimeout();
       var newPos = await getWorkPosition();
       var arrived = (axis === 'X') ? newPos.x : newPos.y;
@@ -205,10 +205,10 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
       var _recoveryStart = _smTimingEnabled ? Date.now() : 0;
       smLogProbe('TRAVEL CONTACT: recovery ' + retries + '/' + maxRetries + ': ' + axis + ' to ' + bounceVal.toFixed(3) + ', lift Z to ' + liftZ.toFixed(3) + '.');
       await sendCommand('G90 G1 ' + axis + bounceVal.toFixed(3) + ' F' + travelFeed);
-      await sleep(50); // Brief delay to ensure controller starts processing
+      await sleep(20); // Brief delay to ensure controller starts processing
       await waitForIdleWithTimeout();
       await sendCommand('G90 G1 Z' + liftZ.toFixed(3) + ' F' + travelFeed);
-      await sleep(50); // Brief delay to ensure controller starts processing
+      await sleep(20); // Brief delay to ensure controller starts processing
       await waitForIdleWithTimeout();
       await smSleep(120);
       if (_smTimingEnabled && smTimingStats) { smTimingStats.travelContact.recoveryTotalMs += Date.now() - _recoveryStart; }
@@ -226,13 +226,13 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
   pluginDebug('smSafeLateralMove: Z-lift cmd: ' + liftCmd);
   var _zLiftStart = _smTimingEnabled ? Date.now() : 0;
   await sendCommand(liftCmd);
-  await sleep(50); // Brief delay to ensure controller starts processing
+  await sleep(20); // Brief delay to ensure controller starts processing
   smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: waiting for idle after Z lift...');
   await waitForIdleWithTimeout();
   smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: idle confirmed after Z lift');
   if (_smTimingEnabled && smTimingStats) { smTimingStats.zLift.totalMs += Date.now() - _zLiftStart; smTimingStats.zLift.count++; }
+  // Switch back to absolute mode (G90) - modal command, no wait needed
   await sendCommand('G90');
-  await waitForIdleWithTimeout();
   await moveAxis('X', targetX);
   await moveAxis('Y', targetY);
   var pos = await getWorkPosition();
@@ -258,20 +258,19 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: switching to G91 (relative) mode');
   await sendCommand('G91');
-  await waitForIdleWithTimeout();
+  // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
   var probeCmd = 'G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed;
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: sending command: ' + probeCmd);
   pluginDebug('smPlungeProbe: sending: ' + probeCmd);
   var _plungeStart = _smTimingEnabled ? Date.now() : 0;
   await sendCommand(probeCmd);
-  await sleep(50); // Brief delay to ensure controller starts processing
+  await sleep(20); // Brief delay to ensure controller starts processing
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: waiting for idle after probe move...');
   await waitForIdleWithTimeout();
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: idle confirmed after probe move');
-  // Restore absolute positioning mode (G90) after relative probe move
+  // Restore absolute positioning mode (G90) after relative probe move - modal command, no wait needed
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: restoring G90 (absolute) mode');
   await sendCommand('G90');
-  await waitForIdleWithTimeout();
   if (_smTimingEnabled && smTimingStats) {
     var _pMs = Date.now() - _plungeStart;
     smTimingStats.plunges.totalMs += _pMs;
