@@ -166,9 +166,22 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
 
   // Get current position to calculate absolute clearance Z target
   var currentPos = await getWorkPosition();
-  var targetClearanceZ = currentPos.z + Math.max(5, clearanceZ);
-
-  smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+  // clearanceZ semantic depends on caller:
+  //  - outline-probe.js passes absolute Z position (negative, e.g. -8.665)
+  //  - surface probe (this file) passes relative clearance (positive, e.g. 5)
+  // If clearanceZ looks like an absolute Z (negative), use it directly.
+  // Otherwise treat it as a relative lift amount from current position.
+  var targetClearanceZ;
+  if (clearanceZ < 0) {
+    // Absolute Z position - use directly
+    targetClearanceZ = clearanceZ;
+    smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+  } else {
+    // Relative lift amount - add to current Z with minimum 5mm lift
+    var liftAmount = Math.max(5, clearanceZ);
+    targetClearanceZ = currentPos.z + liftAmount;
+    smLogProbe('TRAVEL: lifting Z by ' + liftAmount.toFixed(3) + 'mm to absolute ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+  }
 
   // Move a single axis to target using one full-distance G38.3 command.
   // If the probe triggers mid-move (stopped short), back off opposite to travel direction,
