@@ -291,7 +291,7 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('PROBE: switching to G91 (relative) mode');
     smLogProbe('OUTLINE: PROBE: switching to G91 (relative) mode');
     await sendCommand('G91');
-    await waitForIdleWithTimeout();
+    // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
     // Log a controller snapshot just before issuing G38.2 — aids alarm diagnosis.
     outlineAppendLog('DEBUG SNAP: status=' + snap.status +
       ' Pn=' + (snap.raw && snap.raw.Pn ? snap.raw.Pn : 'none') +
@@ -314,12 +314,12 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
     smLogProbe('OUTLINE: PROBE: G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0) + ' timeout=' + probeTimeMs + 'ms');
     await sendCommand('G38.2 Z-' + fullPlunge.toFixed(3) + ' F' + cfg.probeFeed.toFixed(0), probeTimeMs);
-    await sleep(50);
+    await sleep(20);
     await waitForIdleWithTimeout(30000);
     outlineAppendLog('PROBE: restoring G90 (absolute) mode');
     smLogProbe('OUTLINE: PROBE: restoring G90 (absolute) mode');
     await sendCommand('G90');
-    await waitForIdleWithTimeout();
+    // Modal command (G90) doesn't require waitForIdle - controller processes it instantly
 
     var endPos = await getWorkPosition();
     var pinTriggered = await smGetProbeTriggered();
@@ -425,12 +425,12 @@ async function _surfStepProbe(probeDown, probeFeed) {
   // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.3 executes.
   // Some GRBL controllers apply modal commands at end of line, so G91+G38.3 on same line may fail.
   await sendCommand('G91');
-  await waitForIdleWithTimeout();
+  // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
   await sendCommand('G38.3 Z-' + Math.abs(probeDown).toFixed(4) + ' F' + probeFeed.toFixed(0));
-  await sleep(50);
+  await sleep(20);
   await waitForIdleWithTimeout(30000);
   await sendCommand('G90');
-  await waitForIdleWithTimeout();
+  // Modal command (G90) doesn't require waitForIdle - controller processes it instantly
   outlineCheckStop(); // Cancel stale probe result if stop was pressed while waiting
   var pos = await getWorkPosition();
   var distanceTraveled = startZ - pos.z;
@@ -1150,13 +1150,13 @@ async function _outlinePlungeProbe(maxPlunge, probeFeed, clearanceZ) {
   // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.2 executes.
   // Some GRBL controllers apply modal commands at end of line, so G91+G38.2 on same line may fail.
   await sendCommand('G91');
-  await waitForIdleWithTimeout();
+  // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
   await sendCommand('G38.2 Z-' + maxPlunge.toFixed(4) + ' F' + probeFeed.toFixed(0), probeTimeMs);
-  await sleep(50);
+  await sleep(20);
   await waitForIdleWithTimeout(probeTimeMs);
   outlineAppendLog('PROBE: restoring G90 (absolute) mode');
   await sendCommand('G90');
-  await waitForIdleWithTimeout();
+  // Modal command (G90) doesn't require waitForIdle - controller processes it instantly
 
   var endPos   = await getWorkPosition();
   var traveled = startZ - endPos.z;
@@ -1204,13 +1204,13 @@ async function _outlinePlungeProbeG383(maxPlunge, probeFeed, clearanceZ) {
   // IMPORTANT: Send G91 separately first to ensure relative mode is active before G38.3 executes.
   // Some GRBL controllers apply modal commands at end of line, so G91+G38.3 on same line may fail.
   await sendCommand('G91');
-  await waitForIdleWithTimeout();
+  // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
   await sendCommand('G38.3 Z-' + maxPlunge.toFixed(4) + ' F' + probeFeed.toFixed(0), probeTimeMs);
-  await sleep(50);
+  await sleep(20);
   await waitForIdleWithTimeout(probeTimeMs);
   outlineAppendLog('PROBE: restoring G90 (absolute) mode');
   await sendCommand('G90');
-  await waitForIdleWithTimeout();
+  // Modal command (G90) doesn't require waitForIdle - controller processes it instantly
 
   var endPos   = await getWorkPosition();
   var traveled = startZ - endPos.z;
