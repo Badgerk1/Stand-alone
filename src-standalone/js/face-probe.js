@@ -57,7 +57,7 @@ async function probeAbsAxis(axis, target, feed, skipClearCheck){
     var _startAxisPos = axis === 'X' ? Number(_startPos.x) : Number(_startPos.y);
     await sendCommand('G90 G38.2 ' + axis + Number(target).toFixed(3) + ' F' + Number(feed).toFixed(0));
     await sleep(50); // Brief delay to ensure controller starts processing
-    var probePos = await waitForIdleWithTimeout();
+    var probePos = await waitForIdleWithTimeout(30000, true); // Use fast-poll mode for probe operations
     if (!probePos) probePos = await getWorkPosition();
     // Position-based contact detection: if the machine stopped short of the target
     // by more than the tolerance, the probe triggered even if Pn:P has already cleared.

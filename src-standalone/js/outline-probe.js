@@ -392,7 +392,7 @@ async function _probeHorizEdge(axis, targetCoord, feed, safeTravelZ) {
   // G38.3 — probe without error on miss; machine just stops at target if no contact
   await sendCommand('G90 G38.3 ' + axis + targetCoord.toFixed(3) + ' F' + feed.toFixed(0), probeTimeMs);
   await sleep(50);
-  await waitForIdleWithTimeout(probeTimeMs);
+  await waitForIdleWithTimeout(probeTimeMs, true); // Use fast-poll mode for probe operations
   outlineCheckStop(); // Cancel stale probe result if stop was pressed while waiting
 
   var pos = await getWorkPosition();
@@ -428,7 +428,7 @@ async function _surfStepProbe(probeDown, probeFeed) {
   // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
   await sendCommand('G38.3 Z-' + Math.abs(probeDown).toFixed(4) + ' F' + probeFeed.toFixed(0));
   await sleep(20);
-  await waitForIdleWithTimeout(30000);
+  await waitForIdleWithTimeout(30000, true); // Use fast-poll mode for probe operations
   await sendCommand('G90');
   // Modal command (G90) doesn't require waitForIdle - controller processes it instantly
   outlineCheckStop(); // Cancel stale probe result if stop was pressed while waiting

@@ -1158,19 +1158,30 @@ async function getWorkPosition(){
   throw new Error('Could not read current position from ncSender');
 }
 
-async function waitForIdle(){
-  pluginDebug('waitForIdle ENTER');
+async function waitForIdle(fastPoll){
+  pluginDebug('waitForIdle ENTER' + (fastPoll ? ' (fast-poll mode)' : ''));
   var _wiStart = _smTimingEnabled ? Date.now() : 0;
   var lastStatus = '';
-  var pollInterval = 10; // Start with faster polling for quick response
+  // Fast-poll mode for probe operations: use aggressive 1ms polling for first 100ms
+  // to minimize lag when probe triggers, then fall back to adaptive polling
+  var pollInterval = fastPoll ? 1 : 10; // Start with 1ms for probes, 10ms for normal
   var pollCount = 0;
   var maxPolls = 12000; // Maintain same total timeout (~180s)
   for(var i = 0; i < maxPolls; i++){
     await sleep(pollInterval);
     pollCount++;
     // Adaptive polling: start fast, slow down after initial period to reduce CPU load
-    if(pollCount === 10) pollInterval = 15;
-    else if(pollCount === 30) pollInterval = 25;
+    if(fastPoll){
+      // Fast-poll mode: aggressive 1ms for first 100 polls (~100ms), then 5ms, then normal
+      if(pollCount === 100) pollInterval = 5;
+      else if(pollCount === 140) pollInterval = 10;
+      else if(pollCount === 160) pollInterval = 15;
+      else if(pollCount === 190) pollInterval = 25;
+    } else {
+      // Normal mode: original adaptive polling
+      if(pollCount === 10) pollInterval = 15;
+      else if(pollCount === 30) pollInterval = 25;
+    }
     checkStop();
     var state = await _getState();
     var ms = _machineStateFrom(state);
@@ -1201,10 +1212,10 @@ async function waitForIdle(){
   throw new Error('Timeout waiting for Idle');
 }
 
-async function waitForIdleWithTimeout(timeoutMs){
+async function waitForIdleWithTimeout(timeoutMs, fastPoll){
   var ms = (timeoutMs !== null && timeoutMs !== undefined) ? timeoutMs : 30000;
   return Promise.race([
-    waitForIdle(),
+    waitForIdle(fastPoll),
     new Promise(function(_, reject){
       setTimeout(function(){ reject(new Error('waitForIdle timed out after ' + ms + 'ms')); }, ms);
     })

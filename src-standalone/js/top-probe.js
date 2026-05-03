@@ -266,7 +266,7 @@ async function smPlungeProbe(maxPlunge, probeFeed) {
   await sendCommand(probeCmd);
   await sleep(20); // Brief delay to ensure controller starts processing
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: waiting for idle after probe move...');
-  await waitForIdleWithTimeout();
+  await waitForIdleWithTimeout(30000, true); // Use fast-poll mode for probe operations
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: idle confirmed after probe move');
   // Restore absolute positioning mode (G90) after relative probe move - modal command, no wait needed
   smLogProbe('[PLUGIN DEBUG] smPlungeProbe: restoring G90 (absolute) mode');
