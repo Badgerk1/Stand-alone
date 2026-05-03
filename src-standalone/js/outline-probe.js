@@ -802,6 +802,45 @@ async function runOutlineScan() {
     outlineAppendLog('Settings: ' + JSON.stringify(cfg, null, 0));
 
     await requireStartupHomingPreflight('Outline Scan');
+
+    // ── Preflight: validate current WPos is within configured outline bounds ──
+    // Bounds are G54 work coordinates; if WPos is far outside them the scan will
+    // travel to wrong absolute positions and may damage the probe or workpiece.
+    // No motion has occurred yet at this point, so an abort here is safe.
+    var _preflightPos = await getWorkPosition();
+    // 20 mm is a deliberate choice: generous enough to allow normal pre-scan
+    // positioning anywhere around the workpiece, yet tight enough to catch a
+    // completely wrong G54 origin (e.g. hundreds of mm off).
+    var PREFLIGHT_TOLERANCE_MM = 20; // extra margin beyond approach region before aborting
+    var _xMin = cfg.x0 - cfg.approachDist - PREFLIGHT_TOLERANCE_MM;
+    var _xMax = cfg.x0 + cfg.xLen + cfg.approachDist + PREFLIGHT_TOLERANCE_MM;
+    var _yMin = cfg.y0 - cfg.approachDist - PREFLIGHT_TOLERANCE_MM;
+    var _yMax = cfg.y0 + cfg.yLen + cfg.approachDist + PREFLIGHT_TOLERANCE_MM;
+    outlineAppendLog(
+      'Preflight WPos check (tol=' + PREFLIGHT_TOLERANCE_MM + 'mm): ' +
+      'WPos X=' + _preflightPos.x.toFixed(3) + ' Y=' + _preflightPos.y.toFixed(3) +
+      '  Allowed X[' + _xMin.toFixed(3) + '..' + _xMax.toFixed(3) + ']' +
+      '  Y[' + _yMin.toFixed(3) + '..' + _yMax.toFixed(3) + ']'
+    );
+    if (_preflightPos.x < _xMin || _preflightPos.x > _xMax ||
+        _preflightPos.y < _yMin || _preflightPos.y > _yMax) {
+      throw new Error(
+        'PREFLIGHT_ABORT: ' +
+        'WPos (X' + _preflightPos.x.toFixed(3) + ' Y' + _preflightPos.y.toFixed(3) + ') ' +
+        'is outside the allowed scan region ' +
+        'X[' + _xMin.toFixed(3) + '..' + _xMax.toFixed(3) + '] ' +
+        'Y[' + _yMin.toFixed(3) + '..' + _yMax.toFixed(3) + '] ' +
+        '(scan bounds ' +
+        'X' + cfg.x0.toFixed(3) + '\u2026' + (cfg.x0 + cfg.xLen).toFixed(3) +
+        ' \u00b1approachDist(' + cfg.approachDist.toFixed(1) + 'mm)+tol(' + PREFLIGHT_TOLERANCE_MM + 'mm)' +
+        ', Y' + cfg.y0.toFixed(3) + '\u2026' + (cfg.y0 + cfg.yLen).toFixed(3) +
+        ' \u00b1approachDist+tol). ' +
+        'Fix: ensure your controller reports WPos in work coordinates (grblHAL: set $10=2), ' +
+        'set your G54 origin so the scan area matches X0/Y0, ' +
+        'or adjust X Origin / Y Origin in Outline Search Bounds to match your current WCS position.'
+      );
+    }
+
     var safeTravelZ = surfZ + cfg.safeTravelZ;
     await smEnsureProbeClear(safeTravelZ, cfg.fastFeed);
 
@@ -831,6 +870,12 @@ async function runOutlineScan() {
       outlineSetStatus('Stopped', 'warn');
       setFooterStatus('Outline stopped', 'warn');
       // Safety retract/home is handled by stopNowAndSafeHome — do not call here.
+    } else if (e.message && e.message.indexOf('PREFLIGHT_ABORT:') === 0) {
+      // Preflight failed before any motion — display error without commanding moves.
+      var _pfMsg = e.message.replace('PREFLIGHT_ABORT: ', '');
+      outlineAppendLog('PREFLIGHT ABORT: ' + _pfMsg);
+      outlineSetStatus('Preflight abort \u2013 ' + _pfMsg, 'error');
+      setFooterStatus('Outline preflight abort', 'error');
     } else {
       outlineAppendLog('ERROR: ' + e.message);
       outlineSetStatus('Error: ' + e.message, 'error');
