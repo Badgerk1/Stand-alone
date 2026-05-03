@@ -352,7 +352,7 @@ async function smRetractToZ(targetZ, travelFeed) {
 // label  — descriptive string logged to the face probe log.
 // feed   — travel feed rate in mm/min; null/undefined uses travelFeedRate from settings.
 // safeZ  — absolute work Z to raise to; null/undefined computes from topResults (highest
-//          measured top-Z + topRetract clearance) or falls back to a relative lift of topClearZ
+//          measured top-Z + topRetract clearance) or falls back to a relative lift of topRetract
 //          when no top results are available.
 async function smFinishMotion(travelFeed) {
   pluginDebug('smFinishMotion ENTER: travelFeed=' + travelFeed);
@@ -480,31 +480,7 @@ function runSurfaceProbing() {
   smLogProbe('Starting probing: ' + cfg.colCount + 'x' + cfg.rowCount + ' = ' + totalPoints + ' points');
   smLogProbe('Config: clearanceZ=' + clearanceZ + ' probeFeed=' + probeFeed + ' travelFeed=' + travelFeed + ' maxPlunge=' + maxPlunge);
   pluginDebug('runSurfaceProbing: grid ' + cfg.colCount + 'x' + cfg.rowCount + '=' + totalPoints + ' pts, clearanceZ=' + clearanceZ + ' probeFeed=' + probeFeed + ' travelFeed=' + travelFeed + ' maxPlunge=' + maxPlunge);
-
-  // Check if initial clearance lift is enabled
-  var useInitialLiftEl = document.getElementById('useInitialClearanceLift');
-  var useInitialLift = useInitialLiftEl ? useInitialLiftEl.value === 'yes' : false;
-  var topClearZ = Number((document.getElementById('topClearZ') || {}).value) || 5;
-  if (useInitialLift) {
-    smLogProbe('Initial clearance lift enabled: will raise Z by ' + topClearZ.toFixed(3) + ' coords before first probe.');
-  } else {
-    smLogProbe('Initial clearance lift disabled: starting from current Z position.');
-  }
-
-  // Preflight check: ensure machine is homed, not in alarm, and probe is clear
-  requireStartupHomingPreflight('surface probe').catch(function(preflightErr) {
-    smLogProbe('ERROR: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
-    smSetProbeStatus('Preflight check failed', 'err');
-    pluginDebug('runSurfaceProbing: preflight check failed: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
-    document.getElementById('sm-btn-run-probe').disabled = false;
-    document.getElementById('sm-btn-stop-probe').disabled = true;
-    var _failCb = _smProbingCompleteCallback;
-    _smProbingCompleteCallback = null;
-    if (_failCb) { try { _failCb(false); } catch(_e) {} }
-    throw preflightErr; // Re-throw to prevent probe sequence from starting
-  }).then(function() {
-    pluginDebug('runSurfaceProbing: preflight check passed, starting probe sequence');
-  }).then(function() {
+  smLogProbe('Starting from current Z position (no initial lift).');
 
   function probeRow(ri) {
     if (ri >= cfg.rowCount) return Promise.resolve();
@@ -557,12 +533,20 @@ function runSurfaceProbing() {
     }).then(function() { return probeRow(ri + 1); });
   }
 
-  // Start probing: perform initial clearance lift if enabled, then begin probe rows
-  var startPromise = useInitialLift
-    ? smPerformInitialClearanceLift('sm', topClearZ, travelFeed)
-    : Promise.resolve();
-
-  startPromise.then(function() {
+  // Preflight check: ensure machine is homed, not in alarm, and probe is clear
+  requireStartupHomingPreflight('surface probe').catch(function(preflightErr) {
+    smLogProbe('ERROR: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
+    smSetProbeStatus('Preflight check failed', 'err');
+    pluginDebug('runSurfaceProbing: preflight check failed: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
+    document.getElementById('sm-btn-run-probe').disabled = false;
+    document.getElementById('sm-btn-stop-probe').disabled = true;
+    var _failCb = _smProbingCompleteCallback;
+    _smProbingCompleteCallback = null;
+    if (_failCb) { try { _failCb(false); } catch(_e) {} }
+    throw preflightErr; // Re-throw to prevent probe sequence from starting
+  }).then(function() {
+    pluginDebug('runSurfaceProbing: preflight check passed, starting probe sequence');
+  }).then(function() {
     return probeRow(0);
   }).then(function() {
     smMeshDataRaw = result;
@@ -620,7 +604,6 @@ function runSurfaceProbing() {
       console.error('Surface probe completion callback error:', cbErr);
     }
   });
-  }); // Close the .then() block for preflight check
 }
 
 function stopSurfaceProbing() {
