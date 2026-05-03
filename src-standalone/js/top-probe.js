@@ -501,7 +501,6 @@ function runSurfaceProbing() {
         ? Promise.resolve()
         : smSafeLateralMove(colX, rowY, travelFeed, clearanceZ);
       return movePromise
-        .then(function() { return smEnsureProbeClear(clearanceZ, travelFeed); })
         .then(function() {
           smPvizUpdate('plunging', { x: colX, y: rowY, point: probed + 1, total: totalPoints, pct: probed / totalPoints * 100 });
           return smPlungeProbe(maxPlunge, probeFeed);
@@ -527,8 +526,7 @@ function runSurfaceProbing() {
         var nextStartX = reversed ? cfg.minX : cfg.maxX;
         smLogProbe('ROW TRANSITION: row ' + ri + ' done (direction: ' + (reversed ? 'RTL' : 'LTR') + '); using smSafeLateralMove to lift Z by ' + clearanceZ + ' coords relative then move to X=' + smFmtN(nextStartX) + ' Y=' + smFmtN(nextY));
         smPvizUpdate('traveling', { x: nextStartX, y: nextY, point: probed + 1, total: totalPoints, pct: probed / totalPoints * 100, action: 'Row transition...' });
-        return smSafeLateralMove(nextStartX, nextY, travelFeed, clearanceZ)
-          .then(function() { return smEnsureProbeClear(clearanceZ, travelFeed); });
+        return smSafeLateralMove(nextStartX, nextY, travelFeed, clearanceZ);
       }
     }).then(function() { return probeRow(ri + 1); });
   }
