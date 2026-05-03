@@ -352,7 +352,7 @@ async function smRetractToZ(targetZ, travelFeed) {
 // label  — descriptive string logged to the face probe log.
 // feed   — travel feed rate in mm/min; null/undefined uses travelFeedRate from settings.
 // safeZ  — absolute work Z to raise to; null/undefined computes from topResults (highest
-//          measured top-Z + topRetract clearance) or falls back to a relative lift of topClearZ
+//          measured top-Z + topRetract clearance) or falls back to a relative lift of topRetract
 //          when no top results are available.
 async function smFinishMotion(travelFeed) {
   pluginDebug('smFinishMotion ENTER: travelFeed=' + travelFeed);

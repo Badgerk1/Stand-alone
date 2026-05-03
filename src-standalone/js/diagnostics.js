@@ -20,7 +20,7 @@ var EDITABLE_FIELDS = [
   'sm-minY', 'sm-maxY', 'sm-spacingY',
   'sm-probeFeed', 'sm-travelFeed', 'sm-clearanceZ', 'sm-maxPlunge', 'sm-referenceZ',
   // Top/surface probe tab
-  'topFixedCoord', 'topSampleStart', 'topSampleEnd', 'topSampleCount', 'topClearZ',
+  'topFixedCoord', 'topSampleStart', 'topSampleEnd', 'topSampleCount',
   // Face probe fields
   'faceStartOffset', 'fp-xStart', 'fp-xEnd', 'faceDepthBelowSurface',
   'faceFixedCoord', 'faceProbeDistance', 'fp-zStepCount', 'fp-zStepSize',
@@ -30,7 +30,7 @@ var EDITABLE_FIELDS = [
 
 // Selects / checkboxes (editable)
 var EDITABLE_SELECTS = [
-  'probe-type-select', 'sampleAxis', 'useInitialClearanceLift', 'apply-subdivide'
+  'probe-type-select', 'sampleAxis', 'apply-subdivide'
 ];
 
 // Known intentional read-only / display-only fields — verify they ARE readonly/disabled

@@ -11,10 +11,9 @@ async function raiseFaceTravelSafeZ(label, feed, safeZ) {
     if (isFinite(highestZ)) {
       targetZ = highestZ + retractClearance;
     } else {
-      // No top results available — lift relative to current position
+      // No top results available — lift relative to current position using retract clearance
       var curPosForLift = await getWorkPosition();
-      var clearZ = Number(s.topClearZ) || 5;
-      targetZ = Number(curPosForLift.z) + clearZ;
+      targetZ = Number(curPosForLift.z) + retractClearance;
     }
   }
   logLine('face', label + ': raising Z to safe travel height ' + targetZ.toFixed(3));
@@ -261,7 +260,6 @@ async function runFaceProbe(axis, _calledFromCombined){
       // In endpoints mode, Phase 0 probes only xStart and xEnd
       if (s.fpTopRefMode === 'endpoints') { _p0xPts = 2; }
       if (isFinite(_p0xStart) && isFinite(_p0xEnd) && _p0xStart !== _p0xEnd) {
-        var _p0ClearZ  = Number(s.topClearZ)      || 5;
         var _p0Feed    = Number(s.topFeed)         || 200;
         var _p0Travel  = Number(s.travelFeedRate)  || 600;
         var _p0Depth   = Number(s.topProbeDepth)   || 5;
@@ -271,17 +269,9 @@ async function runFaceProbe(axis, _calledFromCombined){
         var _p0Step    = _p0Range / (_p0xPts - 1);
         logLine('face', 'AUTO TOP-Z: Phase 0 — probing surface Z at face X positions before face probe...');
         logLine('face', 'AUTO TOP-Z: ' + _p0xPts + ' points from X=' + _p0xStart.toFixed(3) + ' to X=' + _p0xEnd.toFixed(3) + ' at Y=' + _p0FaceY.toFixed(3));
+        logLine('face', 'Starting from current Z position (no initial lift).');
         topResults = [];
-        
-        // Perform initial clearance lift if enabled (before Phase 0 starts)
-        var _p0UseInitialLift = s.useInitialClearanceLift;
-        if (_p0UseInitialLift) {
-          logLine('face', 'INITIAL LIFT: Performing initial clearance lift of ' + _p0ClearZ.toFixed(3) + ' coords before Phase 0...');
-          await smPerformInitialClearanceLift('face', _p0ClearZ, _p0Travel);
-        } else {
-          logLine('face', 'Initial clearance lift disabled: starting from current Z position.');
-        }
-        
+
         for (var _p0i = 0; _p0i < _p0xPts; _p0i++) {
           smCheckStop();
           var _p0xPos = _p0xStart + _p0i * _p0Step;
@@ -1476,14 +1466,7 @@ async function runCombinedProbeMode(axis) {
 
       var _p15Total = _p15Samples.length;
       pluginDebug('runCombinedProbeMode Phase 1.5: faceY=' + _p15FaceY + ' samples=' + _p15Total + ' maxPlunge=' + _p15MaxPlunge + ' probeFeed=' + _p15ProbeFeed);
-
-      // Perform initial clearance lift if enabled (before Phase 1.5 starts)
-      var _p15UseInitialLift = _p15Settings.useInitialClearanceLift;
-      var _p15TopClearZ = Number(_p15Settings.topClearZ) || 5;
-      if (_p15UseInitialLift) {
-        smLogProbe('COMBINED Phase 1.5: Performing initial clearance lift of ' + _p15TopClearZ.toFixed(3) + ' coords...');
-        await smPerformInitialClearanceLift('sm', _p15TopClearZ, _p15TravelFeed);
-      }
+      smLogProbe('COMBINED Phase 1.5: Starting from current Z position (no initial lift)');
 
       for (var _p15i = 0; _p15i < _p15Total; _p15i++) {
         if (_stopRequested) { checkStop(); }
