@@ -9310,16 +9310,7 @@ function runSurfaceProbing() {
   smLogProbe('Starting probing: ' + cfg.colCount + 'x' + cfg.rowCount + ' = ' + totalPoints + ' points');
   smLogProbe('Config: clearanceZ=' + clearanceZ + ' probeFeed=' + probeFeed + ' travelFeed=' + travelFeed + ' maxPlunge=' + maxPlunge);
   pluginDebug('runSurfaceProbing: grid ' + cfg.colCount + 'x' + cfg.rowCount + '=' + totalPoints + ' pts, clearanceZ=' + clearanceZ + ' probeFeed=' + probeFeed + ' travelFeed=' + travelFeed + ' maxPlunge=' + maxPlunge);
-
-  // Check if initial clearance lift is enabled
-  var useInitialLiftEl = document.getElementById('useInitialClearanceLift');
-  var useInitialLift = useInitialLiftEl ? useInitialLiftEl.value === 'yes' : false;
-  var topClearZ = Number((document.getElementById('topClearZ') || {}).value) || 5;
-  if (useInitialLift) {
-    smLogProbe('Initial clearance lift enabled: will raise Z by ' + topClearZ.toFixed(3) + ' coords before first probe.');
-  } else {
-    smLogProbe('Initial clearance lift disabled: starting from current Z position.');
-  }
+  smLogProbe('Starting from current Z position (no initial lift).');
 
   function probeRow(ri) {
     if (ri >= cfg.rowCount) return Promise.resolve();
@@ -9372,11 +9363,6 @@ function runSurfaceProbing() {
     }).then(function() { return probeRow(ri + 1); });
   }
 
-  // Start probing: perform initial clearance lift if enabled, then begin probe rows
-  var startPromise = useInitialLift
-    ? smPerformInitialClearanceLift('sm', topClearZ, travelFeed)
-    : Promise.resolve();
-
   // Preflight check: ensure machine is homed, not in alarm, and probe is clear
   requireStartupHomingPreflight('surface probe').catch(function(preflightErr) {
     smLogProbe('ERROR: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
@@ -9390,7 +9376,6 @@ function runSurfaceProbing() {
     throw preflightErr; // Re-throw to prevent probe sequence from starting
   }).then(function() {
     pluginDebug('runSurfaceProbing: preflight check passed, starting probe sequence');
-    return startPromise;
   }).then(function() {
     return probeRow(0);
   }).then(function() {
