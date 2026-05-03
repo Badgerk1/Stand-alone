@@ -1162,15 +1162,15 @@ async function waitForIdle(){
   pluginDebug('waitForIdle ENTER');
   var _wiStart = _smTimingEnabled ? Date.now() : 0;
   var lastStatus = '';
-  var pollInterval = 15; // Start with fast polling (was 30ms)
+  var pollInterval = 10; // Start with faster polling for quick response
   var pollCount = 0;
   var maxPolls = 12000; // Maintain same total timeout (~180s)
   for(var i = 0; i < maxPolls; i++){
     await sleep(pollInterval);
     pollCount++;
     // Adaptive polling: start fast, slow down after initial period to reduce CPU load
-    if(pollCount === 20) pollInterval = 25;
-    else if(pollCount === 100) pollInterval = 35;
+    if(pollCount === 10) pollInterval = 15;
+    else if(pollCount === 30) pollInterval = 25;
     checkStop();
     var state = await _getState();
     var ms = _machineStateFrom(state);
