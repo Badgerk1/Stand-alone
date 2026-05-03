@@ -9307,6 +9307,21 @@ function runSurfaceProbing() {
     smLogProbe('Initial clearance lift disabled: starting from current Z position.');
   }
 
+  // Preflight check: ensure machine is homed, not in alarm, and probe is clear
+  requireStartupHomingPreflight('surface probe').catch(function(preflightErr) {
+    smLogProbe('ERROR: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
+    smSetProbeStatus('Preflight check failed', 'err');
+    pluginDebug('runSurfaceProbing: preflight check failed: ' + (preflightErr && preflightErr.message ? preflightErr.message : String(preflightErr)));
+    document.getElementById('sm-btn-run-probe').disabled = false;
+    document.getElementById('sm-btn-stop-probe').disabled = true;
+    var _failCb = _smProbingCompleteCallback;
+    _smProbingCompleteCallback = null;
+    if (_failCb) { try { _failCb(false); } catch(_e) {} }
+    throw preflightErr; // Re-throw to prevent probe sequence from starting
+  }).then(function() {
+    pluginDebug('runSurfaceProbing: preflight check passed, starting probe sequence');
+  }).then(function() {
+
   function probeRow(ri) {
     if (ri >= cfg.rowCount) return Promise.resolve();
     var rowY = cfg.minY + ri * cfg.rowSpacing;
@@ -9421,6 +9436,7 @@ function runSurfaceProbing() {
       console.error('Surface probe completion callback error:', cbErr);
     }
   });
+  }); // Close the .then() block for preflight check
 }
 
 function stopSurfaceProbing() {
