@@ -16956,30 +16956,40 @@ async function toolChangeMoveToReference() {
   if (!confirmed) return;
 
   try {
+    // Preflight: abort if controller is in ALARM, machine is not homed, or probe is triggered
+    await requireStartupHomingPreflight('tool change move to reference');
+
     setFooterStatus('Moving to reference position...', 'ok');
     if (statusEl) {
       statusEl.textContent = 'Moving to reference XY position...';
       statusEl.className = 'status-line';
     }
 
-    // Get current position and settings
-    var currentSnap = await getMachineSnapshot();
     var cfg = getSettingsFromUI();
-    var safeTravelZ = cfg.surfaceTravelZ || 5;
+    var retractFeed = Math.max(100, cfg.travelFeedRate || 600);
+    var machineSafeZ = isFinite(Number(cfg.machineSafeTopZ)) ? Number(cfg.machineSafeTopZ) : null;
 
-    // Step 1: Raise to safe travel height
-    await sendCommand('G90');
-    await sleep(20);
-    await sendCommand('G0 Z' + safeTravelZ.toFixed(3) + ' F' + (cfg.travelFeedRate || 1200));
+    // Step 1: Raise to safe travel height using machine coordinates to avoid soft-limit
+    // ALARM:2.  G53 overrides the active WCS for this one block, so the move is always
+    // within travel limits regardless of the current WCO offset.
+    if (machineSafeZ !== null) {
+      await sendCommand('G53 G1 Z' + machineSafeZ.toFixed(3) + ' F' + retractFeed.toFixed(0));
+    } else {
+      // Fallback: relative lift when machineSafeTopZ is not configured
+      await sendCommand('G91 G1 Z5 F' + retractFeed.toFixed(0));
+    }
     await sleep(50);
     await _waitForIdleOrStop(10000);
+    // Restore absolute work-coordinate mode for XY travel
+    await sendCommand('G90');
+    await sleep(20);
 
     setFooterStatus('Moving to XY reference...', 'ok');
 
     // Step 2: Move to XY reference position
     await sendCommand('G0 X' + _toolChangeRefPos.x.toFixed(3) +
                      ' Y' + _toolChangeRefPos.y.toFixed(3) +
-                     ' F' + (cfg.travelFeedRate || 1200));
+                     ' F' + retractFeed.toFixed(0));
     await sleep(50);
     await _waitForIdleOrStop(15000);
 
@@ -17022,30 +17032,40 @@ async function toolChangeReturnAndReZero() {
   if (!confirmed) return;
 
   try {
+    // Preflight: abort if controller is in ALARM, machine is not homed, or probe is triggered
+    await requireStartupHomingPreflight('tool change return & re-zero');
+
     setFooterStatus('Returning to reference position...', 'ok');
     if (statusEl) {
       statusEl.textContent = 'Moving to reference position...';
       statusEl.className = 'status-line';
     }
 
-    // Get current position to determine safe Z for travel
-    var currentSnap = await getMachineSnapshot();
     var cfg = getSettingsFromUI();
-    var safeTravelZ = cfg.surfaceTravelZ || 5;  // Use surface probe travel Z setting
+    var retractFeed = Math.max(100, cfg.travelFeedRate || 600);
+    var machineSafeZ = isFinite(Number(cfg.machineSafeTopZ)) ? Number(cfg.machineSafeTopZ) : null;
 
-    // Step 1: Raise to safe travel height
-    await sendCommand('G90');
-    await sleep(20);
-    await sendCommand('G0 Z' + safeTravelZ.toFixed(3) + ' F' + (cfg.travelFeedRate || 1200));
+    // Step 1: Raise to safe travel height using machine coordinates to avoid soft-limit
+    // ALARM:2.  G53 overrides the active WCS for this one block, so the move is always
+    // within travel limits regardless of the current WCO offset.
+    if (machineSafeZ !== null) {
+      await sendCommand('G53 G1 Z' + machineSafeZ.toFixed(3) + ' F' + retractFeed.toFixed(0));
+    } else {
+      // Fallback: relative lift when machineSafeTopZ is not configured
+      await sendCommand('G91 G1 Z5 F' + retractFeed.toFixed(0));
+    }
     await sleep(50);
     await _waitForIdleOrStop(10000);
+    // Restore absolute work-coordinate mode for XY travel
+    await sendCommand('G90');
+    await sleep(20);
 
     setFooterStatus('Moving to XY reference...', 'ok');
 
     // Step 2: Move to XY reference position
     await sendCommand('G0 X' + _toolChangeRefPos.x.toFixed(3) +
                      ' Y' + _toolChangeRefPos.y.toFixed(3) +
-                     ' F' + (cfg.travelFeedRate || 1200));
+                     ' F' + retractFeed.toFixed(0));
     await sleep(50);
     await _waitForIdleOrStop(15000);
 
@@ -17056,8 +17076,11 @@ async function toolChangeReturnAndReZero() {
     setFooterStatus('Probing surface to establish Z0...', 'ok');
 
     // Step 3: Probe down to find surface
-    var probeFeed = cfg.surfaceProbeFeedRate || 100;
-    var maxPlunge = cfg.surfaceProbeMaxPlunge || 20;
+    // Use existing settings fields (probeFeed / topProbeDepth) — surfaceProbeFeedRate and
+    // surfaceProbeMaxPlunge are not registered in getSettingsFromUI() and would always
+    // evaluate to their fallback defaults.
+    var probeFeed = cfg.probeFeed || 100;
+    var maxPlunge = cfg.topProbeDepth || 20;
 
     // Ensure probe is not triggered before plunge
     var preSnap = await getMachineSnapshot();
