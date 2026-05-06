@@ -1628,6 +1628,52 @@
         <div id="apply-gcode-bounds-info" class="callout mini" style="margin-top:8px;display:none"></div>
       </div>
 
+      <!-- Tool Change & Re-Zero Helper -->
+      <div class="panel" data-panel-key="apply-tool-change">
+        <div class="box-title">&#128295; Tool Change & Re-Zero Helper</div>
+        <div class="callout mini" style="margin-bottom:10px">
+          Save your reference probe position, then return to it after changing from touch probe to cutting bit to re-establish Z0.
+          This ensures the cutting bit shares the same Z reference as the probe measurements.
+        </div>
+
+        <!-- Reference Position Display -->
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:6px">📍 Saved Reference Position</div>
+          <div id="tool-change-ref-display" style="font-family:monospace;font-size:13px;color:var(--muted)">
+            No reference position saved yet
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn secondary" id="tool-change-save-btn" onclick="toolChangeSaveReference()">
+            &#128190; Save Current Position
+          </button>
+          <button class="btn" id="tool-change-return-btn" onclick="toolChangeReturnAndReZero()" disabled>
+            &#8634; Return & Re-Zero Z
+          </button>
+        </div>
+
+        <!-- Status Indicator -->
+        <div id="tool-change-status" class="status-line" style="margin-bottom:10px"></div>
+
+        <!-- Workflow Checklist -->
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">&#9989; Tool Change Workflow</div>
+          <div style="font-size:12px;line-height:1.8">
+            <div id="workflow-step1" style="color:var(--muted)">&#9744; 1. Complete probe scan with touch probe</div>
+            <div id="workflow-step2" style="color:var(--muted)">&#9744; 2. Click "Save Current Position" (saves X0 Y0 Z)</div>
+            <div id="workflow-step3" style="color:var(--muted)">&#9744; 3. Remove touch probe, install cutting bit</div>
+            <div id="workflow-step4" style="color:var(--muted)">&#9744; 4. Click "Return & Re-Zero Z" (moves to saved XY, re-zeros Z)</div>
+            <div id="workflow-step5" style="color:var(--muted)">&#9744; 5. Load compensated G-code and run job</div>
+          </div>
+          <div class="mini" style="margin-top:8px;color:var(--muted)">
+            <strong>Why?</strong> The cutting bit must share the same Z0 reference as the touch probe.
+            Re-zeroing Z at the saved position ensures proper compensation alignment.
+          </div>
+        </div>
+      </div>
+
       <!-- Surface Z Compensation -->
       <div class="panel" data-panel-key="apply-surf-comp">
         <div class="box-title">&#9889; Surface Z Compensation</div>
@@ -16800,6 +16846,247 @@ function _onPaneDrop(e) {
   pane.insertBefore(_layoutDragSrc, insertBefore); // insertBefore=null → append to end
   _saveLayout(_getTabIdFromPane(pane));
 }
+// ── Tool Change & Re-Zero Helper ──────────────────────────────────────────────
+// Helps users save their reference probe position and return to it after
+// changing from touch probe to cutting bit, ensuring Z0 alignment.
+// ──────────────────────────────────────────────────────────────────────────────
+
+var _toolChangeRefPos = null;  // {x, y, z} saved reference position
+var _toolChangeZReZeroed = false;  // flag indicating Z has been re-zeroed
+
+// Load saved reference position from localStorage on startup
+(function _toolChangeLoadSaved() {
+  try {
+    var saved = localStorage.getItem('toolChangeRefPos');
+    if (saved) {
+      _toolChangeRefPos = JSON.parse(saved);
+      _toolChangeUpdateUI();
+    }
+  } catch (e) {
+    console.warn('[tool-change] Could not load saved reference position:', e);
+  }
+})();
+
+// ── Save Current Position as Reference ────────────────────────────────────────
+async function toolChangeSaveReference() {
+  var statusEl = document.getElementById('tool-change-status');
+  try {
+    setFooterStatus('Reading current position...', 'ok');
+
+    var snapshot = await getMachineSnapshot();
+    if (!snapshot || snapshot.x == null || snapshot.y == null || snapshot.z == null) {
+      throw new Error('Could not read current position. Ensure machine is connected and homed.');
+    }
+
+    _toolChangeRefPos = {
+      x: snapshot.x,
+      y: snapshot.y,
+      z: snapshot.z
+    };
+    _toolChangeZReZeroed = false;
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('toolChangeRefPos', JSON.stringify(_toolChangeRefPos));
+    } catch (e) {
+      console.warn('[tool-change] Could not save to localStorage:', e);
+    }
+
+    _toolChangeUpdateUI();
+
+    if (statusEl) {
+      statusEl.textContent = 'Reference position saved: X' + _toolChangeRefPos.x.toFixed(3) +
+                            ' Y' + _toolChangeRefPos.y.toFixed(3) +
+                            ' Z' + _toolChangeRefPos.z.toFixed(3);
+      statusEl.className = 'status-line good';
+    }
+    setFooterStatus('Reference position saved successfully.', 'ok');
+
+    // Update workflow checklist
+    _toolChangeUpdateWorkflowStep(2, true);
+
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status-line bad';
+    }
+    setFooterStatus('Error saving reference position: ' + e.message, 'bad');
+  }
+}
+
+// ── Return to Reference Position and Re-Zero Z ────────────────────────────────
+async function toolChangeReturnAndReZero() {
+  if (!_toolChangeRefPos) {
+    alert('No reference position saved. Click "Save Current Position" first.');
+    return;
+  }
+
+  var statusEl = document.getElementById('tool-change-status');
+
+  var confirmed = confirm(
+    'This will:\n' +
+    '1. Move to X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3) + '\n' +
+    '2. Probe down to find the surface\n' +
+    '3. Set Z0 at that surface\n\n' +
+    'Make sure:\n' +
+    '✓ Touch probe removed, cutting bit installed\n' +
+    '✓ Path is clear for safe travel\n' +
+    '✓ Machine is ready to move\n\n' +
+    'Continue?'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setFooterStatus('Returning to reference position...', 'ok');
+    if (statusEl) {
+      statusEl.textContent = 'Moving to reference position...';
+      statusEl.className = 'status-line';
+    }
+
+    // Get current position to determine safe Z for travel
+    var currentSnap = await getMachineSnapshot();
+    var cfg = getSettingsFromUI();
+    var safeTravelZ = cfg.surfaceTravelZ || 5;  // Use surface probe travel Z setting
+
+    // Step 1: Raise to safe travel height
+    await sendCommand('G90');
+    await sleep(20);
+    await sendCommand('G0 Z' + safeTravelZ.toFixed(3) + ' F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(10000);
+
+    setFooterStatus('Moving to XY reference...', 'ok');
+
+    // Step 2: Move to XY reference position
+    await sendCommand('G0 X' + _toolChangeRefPos.x.toFixed(3) +
+                     ' Y' + _toolChangeRefPos.y.toFixed(3) +
+                     ' F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(15000);
+
+    if (statusEl) {
+      statusEl.textContent = 'At reference position, probing surface to set Z0...';
+      statusEl.className = 'status-line';
+    }
+    setFooterStatus('Probing surface to establish Z0...', 'ok');
+
+    // Step 3: Probe down to find surface
+    var probeFeed = cfg.surfaceProbeFeedRate || 100;
+    var maxPlunge = cfg.surfaceProbeMaxPlunge || 20;
+
+    // Ensure probe is not triggered before plunge
+    var preSnap = await getMachineSnapshot();
+    if (preSnap.probeTriggered) {
+      throw new Error('Probe is already triggered. Clear probe before re-zeroing Z.');
+    }
+
+    // Probe down
+    await sendCommand('G91');  // Relative mode
+    await sleep(20);
+    await sendCommand('G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed.toFixed(0));
+    await sleep(100);
+    await _waitForIdleOrStop(20000);
+    await sendCommand('G90');  // Back to absolute mode
+    await sleep(20);
+
+    // Check probe triggered
+    var postSnap = await getMachineSnapshot();
+    if (!postSnap.probeTriggered) {
+      throw new Error('Probe did not trigger. Check probe connection and surface height.');
+    }
+
+    // Step 4: Set Z0 at this position
+    await sendCommand('G10 L20 P0 Z0');
+    await sleep(100);
+
+    // Step 5: Retract slightly
+    await sendCommand('G91');
+    await sleep(20);
+    await sendCommand('G0 Z2 F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(5000);
+    await sendCommand('G90');
+    await sleep(20);
+
+    _toolChangeZReZeroed = true;
+    _toolChangeUpdateUI();
+
+    if (statusEl) {
+      statusEl.textContent = 'Z0 successfully established at reference position!';
+      statusEl.className = 'status-line good';
+    }
+    setFooterStatus('Tool change complete - Z0 re-zeroed successfully!', 'ok');
+
+    // Update workflow checklist
+    _toolChangeUpdateWorkflowStep(4, true);
+
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status-line bad';
+    }
+    setFooterStatus('Error during return and re-zero: ' + e.message, 'bad');
+  }
+}
+
+// ── Update UI Elements ────────────────────────────────────────────────────────
+function _toolChangeUpdateUI() {
+  var displayEl = document.getElementById('tool-change-ref-display');
+  var returnBtn = document.getElementById('tool-change-return-btn');
+
+  if (_toolChangeRefPos) {
+    if (displayEl) {
+      var zeroStatus = _toolChangeZReZeroed ?
+        ' <span style="color:var(--good)">✓ Z re-zeroed</span>' :
+        ' <span style="color:var(--warn)">⚠ Z not yet re-zeroed</span>';
+      displayEl.innerHTML =
+        'X: ' + _toolChangeRefPos.x.toFixed(3) + 'mm<br>' +
+        'Y: ' + _toolChangeRefPos.y.toFixed(3) + 'mm<br>' +
+        'Z: ' + _toolChangeRefPos.z.toFixed(3) + 'mm' + zeroStatus;
+    }
+    if (returnBtn) {
+      returnBtn.disabled = false;
+    }
+  } else {
+    if (displayEl) {
+      displayEl.innerHTML = 'No reference position saved yet';
+    }
+    if (returnBtn) {
+      returnBtn.disabled = true;
+    }
+  }
+}
+
+// ── Update Workflow Checklist Step ────────────────────────────────────────────
+function _toolChangeUpdateWorkflowStep(stepNum, completed) {
+  var stepEl = document.getElementById('workflow-step' + stepNum);
+  if (!stepEl) return;
+
+  var text = stepEl.textContent;
+  if (completed) {
+    stepEl.innerHTML = text.replace('&#9744;', '&#9745;').replace('☐', '☑');
+    stepEl.style.color = 'var(--good)';
+  } else {
+    stepEl.innerHTML = text.replace('&#9745;', '&#9744;').replace('☑', '☐');
+    stepEl.style.color = 'var(--muted)';
+  }
+}
+
+// ── Clear Reference (for testing/reset) ───────────────────────────────────────
+function toolChangeClearReference() {
+  _toolChangeRefPos = null;
+  _toolChangeZReZeroed = false;
+  try {
+    localStorage.removeItem('toolChangeRefPos');
+  } catch (e) {}
+  _toolChangeUpdateUI();
+  var statusEl = document.getElementById('tool-change-status');
+  if (statusEl) {
+    statusEl.textContent = 'Reference position cleared.';
+    statusEl.className = 'status-line';
+  }
+}
 // ── Web Serial Transport for Standalone Mode ─────────────────────────────────
 //
 // This file is appended AFTER all src/js/*.js files in the standalone build.
@@ -16835,6 +17122,7 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
 // ── Connection UI injection ───────────────────────────────────────────────────
 // Replaces the existing "Ready" span in #hdr-conn with a baud selector,
 // a Connect/Disconnect button, and a live status indicator.
+// Also adapts the Apply tab buttons for standalone (no ncSender) mode.
 (function _wsInjectUI() {
   document.title = '3D Live Edge Probe — Standalone';
   var hdr = document.getElementById('hdr-conn');
@@ -16853,6 +17141,28 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
       'Connect Serial' +
     '</button>' +
     '<span id="ws-status" style="font-size:12px;color:var(--muted);white-space:nowrap">&#9675; Not connected</span>';
+
+  // ── Apply tab — adapt buttons for standalone (no ncSender) ──────────────
+  // Rename "Load from ncSender" to clarify it is not available here.
+  var btnLoadNc = document.getElementById('apply-btn-load-ncsender');
+  if (btnLoadNc) {
+    btnLoadNc.textContent = '\u26a0\ufe0f Not available (standalone)';
+    btnLoadNc.title = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    btnLoadNc.classList.remove('btn');
+    btnLoadNc.classList.add('btn', 'ghost');
+  }
+
+  // Rename "Send to ncSender" buttons to "Send to Machine".
+  var btnSendSurface = document.getElementById('apply-btn-send-ncsender-surface');
+  if (btnSendSurface) {
+    btnSendSurface.innerHTML = '&#9654; Send to Machine';
+    btnSendSurface.title = 'Stream the compensated G-code line-by-line to the controller over serial.';
+  }
+  var btnSendFace = document.getElementById('apply-btn-send-ncsender-face');
+  if (btnSendFace) {
+    btnSendFace.innerHTML = '&#9654; Send to Machine';
+    btnSendFace.title = 'Stream the compensated G-code line-by-line to the controller over serial.';
+  }
 })();
 
 function _wsSetUI(connected) {
@@ -17182,6 +17492,109 @@ async function requireStartupHomingPreflight(runLabel) {
     setFooterStatus(_warnMsg, 'warn');
   }
   return info;
+}
+
+// ── G-code streaming state ────────────────────────────────────────────────────
+var _wsStreamRunning = false;
+
+// ── Override: applyLoadGcodeFromNcSender ──────────────────────────────────────
+// In standalone mode there is no ncSender — direct the user to "Load from File".
+async function applyLoadGcodeFromNcSender() {
+  var statusEl = document.getElementById('apply-gcode-status');
+  if (statusEl) {
+    statusEl.textContent = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    statusEl.className = 'status-line warn';
+  }
+  setFooterStatus('Standalone mode: use \u201cLoad from File\u201d to load G-code.', 'warn');
+}
+
+// ── Override: sendCompToNcSender ──────────────────────────────────────────────
+// In standalone mode this streams the compensated G-code line-by-line to the
+// controller over serial instead of pushing it to ncSender.
+async function sendCompToNcSender(gcodeText, label) {
+  if (!gcodeText) { alert('No compensated G-code. Apply compensation first.'); return; }
+  if (!_wsConnected) { alert('Not connected. Click \u201cConnect Serial\u201d and select a port first.'); return; }
+  if (_wsStreamRunning) { alert('A G-code stream is already running. Stop it first.'); return; }
+
+  // Filter out blank lines and pure comment lines; keep all real G-code lines.
+  var allLines = gcodeText.split('\n');
+  var toSend = [];
+  for (var i = 0; i < allLines.length; i++) {
+    var l = allLines[i].trim();
+    if (!l || l.charAt(0) === ';' || l.charAt(0) === '(' || l.charAt(0) === '%') continue;
+    toSend.push(l);
+  }
+
+  if (!toSend.length) { alert('No G-code lines to send.'); return; }
+
+  var confirmed = confirm(
+    'Send ' + toSend.length + ' G-code line' + (toSend.length !== 1 ? 's' : '') +
+    ' (' + (label || 'compensated') + ') to the machine?\n\n' +
+    'WARNING: The machine will start moving immediately. Make sure it is safe to proceed.'
+  );
+  if (!confirmed) return;
+
+  _wsStreamRunning = true;
+
+  // Determine which status element to update based on label.
+  var isFace = (label && label.indexOf('face') >= 0);
+  var statusEl = document.getElementById(isFace ? 'apply-face-status' : 'apply-surface-status');
+
+  // Inject a Stop button next to the status line so the user can abort.
+  var stopBtnId = 'ws-stream-stop-btn';
+  var existingStop = document.getElementById(stopBtnId);
+  if (existingStop) existingStop.remove();
+  var stopBtn = document.createElement('button');
+  stopBtn.id = stopBtnId;
+  stopBtn.className = 'btn';
+  stopBtn.style.cssText = 'background:#c0392b;border-color:#c0392b;color:#fff;margin-top:6px';
+  stopBtn.textContent = '\u25a0 Stop Stream';
+  stopBtn.onclick = function () { _wsStreamRunning = false; };
+  if (statusEl && statusEl.parentNode) {
+    statusEl.parentNode.insertBefore(stopBtn, statusEl.nextSibling);
+  }
+
+  function _cleanup() {
+    _wsStreamRunning = false;
+    var btn = document.getElementById(stopBtnId);
+    if (btn) btn.remove();
+  }
+
+  setFooterStatus('Streaming G-code to machine\u2026 (0/' + toSend.length + ')', 'ok');
+
+  try {
+    for (var j = 0; j < toSend.length; j++) {
+      if (!_wsStreamRunning) {
+        var stopMsg = 'Stream stopped by user at line ' + (j + 1) + ' of ' + toSend.length + '.';
+        if (statusEl) { statusEl.textContent = stopMsg; statusEl.className = 'status-line warn'; }
+        setFooterStatus(stopMsg, 'warn');
+        _cleanup();
+        return;
+      }
+      if (!_wsConnected) {
+        var discMsg = 'Stream aborted: serial connection lost at line ' + (j + 1) + '.';
+        if (statusEl) { statusEl.textContent = discMsg; statusEl.className = 'status-line bad'; }
+        setFooterStatus(discMsg, 'bad');
+        _cleanup();
+        return;
+      }
+      var pct = Math.round(((j + 1) / toSend.length) * 100);
+      var progMsg = 'Streaming: line ' + (j + 1) + ' of ' + toSend.length + ' (' + pct + '%)';
+      if (statusEl) { statusEl.textContent = progMsg; statusEl.className = 'status-line'; }
+      setFooterStatus(progMsg, 'ok');
+
+      await sendCommand(toSend[j], 60000);
+    }
+    var doneMsg = 'Stream complete: ' + toSend.length + ' lines sent to machine.';
+    if (statusEl) { statusEl.textContent = doneMsg; statusEl.className = 'status-line good'; }
+    setFooterStatus(doneMsg, 'ok');
+  } catch (e) {
+    var errMsg = 'Stream error: ' + e.message;
+    if (statusEl) { statusEl.textContent = errMsg; statusEl.className = 'status-line bad'; }
+    setFooterStatus(errMsg, 'bad');
+  } finally {
+    _cleanup();
+  }
 }
 </script>
 </body>
