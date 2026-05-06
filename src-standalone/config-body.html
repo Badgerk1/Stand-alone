@@ -1376,6 +1376,9 @@
     <!-- ── APPLY TAB ─────────────────────────────────────────────────── -->
     <div class="tab-panel" id="pane-apply">
 
+  <!-- ── Jog Controls (teleported here from Setup tab when Apply tab is active) ── -->
+  <div class="panel" id="apply-jog-panel" data-panel-key="apply-jog-controls"></div>
+
       <!-- G-code Source -->
       <div class="panel" data-panel-key="apply-gcode-src">
         <div class="box-title">&#128196; G-code Source</div>
@@ -1410,6 +1413,9 @@
         <div class="btn-row" style="margin-bottom:10px">
           <button class="btn secondary" id="tool-change-save-btn" onclick="toolChangeSaveReference()">
             &#128190; Save Current Position
+          </button>
+          <button class="btn ghost" id="tool-change-move-btn" onclick="toolChangeMoveToReference()" disabled>
+            &#128205; Move to Reference
           </button>
           <button class="btn" id="tool-change-return-btn" onclick="toolChangeReturnAndReZero()" disabled>
             &#8634; Return & Re-Zero Z

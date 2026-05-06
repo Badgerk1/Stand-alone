@@ -66,6 +66,69 @@ async function toolChangeSaveReference() {
   }
 }
 
+// ── Move to Reference XY Position (without probing) ──────────────────────────
+async function toolChangeMoveToReference() {
+  if (!_toolChangeRefPos) {
+    alert('No reference position saved. Click "Save Current Position" first.');
+    return;
+  }
+
+  var statusEl = document.getElementById('tool-change-status');
+
+  var confirmed = confirm(
+    'This will move to the saved reference position:\n' +
+    'X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3) + '\n\n' +
+    'Make sure:\n' +
+    '✓ Path is clear for safe travel\n' +
+    '✓ Machine is ready to move\n\n' +
+    'Continue?'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setFooterStatus('Moving to reference position...', 'ok');
+    if (statusEl) {
+      statusEl.textContent = 'Moving to reference XY position...';
+      statusEl.className = 'status-line';
+    }
+
+    // Get current position and settings
+    var currentSnap = await getMachineSnapshot();
+    var cfg = getSettingsFromUI();
+    var safeTravelZ = cfg.surfaceTravelZ || 5;
+
+    // Step 1: Raise to safe travel height
+    await sendCommand('G90');
+    await sleep(20);
+    await sendCommand('G0 Z' + safeTravelZ.toFixed(3) + ' F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(10000);
+
+    setFooterStatus('Moving to XY reference...', 'ok');
+
+    // Step 2: Move to XY reference position
+    await sendCommand('G0 X' + _toolChangeRefPos.x.toFixed(3) +
+                     ' Y' + _toolChangeRefPos.y.toFixed(3) +
+                     ' F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(15000);
+
+    if (statusEl) {
+      statusEl.textContent = 'At reference position. Use jog controls or "Return & Re-Zero Z" to probe and set Z0.';
+      statusEl.className = 'status-line good';
+    }
+    setFooterStatus('Successfully moved to reference XY position.', 'ok');
+
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status-line bad';
+    }
+    setFooterStatus('Error moving to reference: ' + e.message, 'bad');
+  }
+}
+
 // ── Return to Reference Position and Re-Zero Z ────────────────────────────────
 async function toolChangeReturnAndReZero() {
   if (!_toolChangeRefPos) {
@@ -185,6 +248,7 @@ async function toolChangeReturnAndReZero() {
 // ── Update UI Elements ────────────────────────────────────────────────────────
 function _toolChangeUpdateUI() {
   var displayEl = document.getElementById('tool-change-ref-display');
+  var moveBtn = document.getElementById('tool-change-move-btn');
   var returnBtn = document.getElementById('tool-change-return-btn');
 
   if (_toolChangeRefPos) {
@@ -197,12 +261,18 @@ function _toolChangeUpdateUI() {
         'Y: ' + _toolChangeRefPos.y.toFixed(3) + 'mm<br>' +
         'Z: ' + _toolChangeRefPos.z.toFixed(3) + 'mm' + zeroStatus;
     }
+    if (moveBtn) {
+      moveBtn.disabled = false;
+    }
     if (returnBtn) {
       returnBtn.disabled = false;
     }
   } else {
     if (displayEl) {
       displayEl.innerHTML = 'No reference position saved yet';
+    }
+    if (moveBtn) {
+      moveBtn.disabled = true;
     }
     if (returnBtn) {
       returnBtn.disabled = true;

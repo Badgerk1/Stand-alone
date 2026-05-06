@@ -10,14 +10,19 @@ function switchTab(id){
     if(t.getAttribute('data-tab') === id) t.classList.add('active');
   });
 
-  // Teleport jog controls between Setup tab and Probe tab
+  // Teleport jog controls between Setup tab, Probe tab, and Apply tab
   var jogCard = document.getElementById('jog-controls-card');
   var probeHolder = document.getElementById('probe-jog-panel');
+  var applyHolder = document.getElementById('apply-jog-panel');
   var setupAnchor = document.getElementById('jog-original-anchor');
-  if (jogCard && probeHolder && setupAnchor) {
+  if (jogCard && probeHolder && applyHolder && setupAnchor) {
     if (id === 'top') {
       // Move jog card into the probe placeholder and apply compact style
       probeHolder.appendChild(jogCard);
+      jogCard.classList.add('jog-compact');
+    } else if (id === 'apply') {
+      // Move jog card into the apply placeholder and apply compact style
+      applyHolder.appendChild(jogCard);
       jogCard.classList.add('jog-compact');
     } else {
       // Return jog card to its dedicated top-level setup panel (setup-jog-controls)
