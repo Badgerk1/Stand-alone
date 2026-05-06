@@ -16835,6 +16835,7 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
 // ── Connection UI injection ───────────────────────────────────────────────────
 // Replaces the existing "Ready" span in #hdr-conn with a baud selector,
 // a Connect/Disconnect button, and a live status indicator.
+// Also adapts the Apply tab buttons for standalone (no ncSender) mode.
 (function _wsInjectUI() {
   document.title = '3D Live Edge Probe — Standalone';
   var hdr = document.getElementById('hdr-conn');
@@ -16853,6 +16854,28 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
       'Connect Serial' +
     '</button>' +
     '<span id="ws-status" style="font-size:12px;color:var(--muted);white-space:nowrap">&#9675; Not connected</span>';
+
+  // ── Apply tab — adapt buttons for standalone (no ncSender) ──────────────
+  // Rename "Load from ncSender" to clarify it is not available here.
+  var btnLoadNc = document.getElementById('apply-btn-load-ncsender');
+  if (btnLoadNc) {
+    btnLoadNc.textContent = '\u26a0\ufe0f Not available (standalone)';
+    btnLoadNc.title = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    btnLoadNc.classList.remove('btn');
+    btnLoadNc.classList.add('btn', 'ghost');
+  }
+
+  // Rename "Send to ncSender" buttons to "Send to Machine".
+  var btnSendSurface = document.getElementById('apply-btn-send-ncsender-surface');
+  if (btnSendSurface) {
+    btnSendSurface.innerHTML = '&#9654; Send to Machine';
+    btnSendSurface.title = 'Stream the compensated G-code line-by-line to the controller over serial.';
+  }
+  var btnSendFace = document.getElementById('apply-btn-send-ncsender-face');
+  if (btnSendFace) {
+    btnSendFace.innerHTML = '&#9654; Send to Machine';
+    btnSendFace.title = 'Stream the compensated G-code line-by-line to the controller over serial.';
+  }
 })();
 
 function _wsSetUI(connected) {
@@ -17182,6 +17205,109 @@ async function requireStartupHomingPreflight(runLabel) {
     setFooterStatus(_warnMsg, 'warn');
   }
   return info;
+}
+
+// ── G-code streaming state ────────────────────────────────────────────────────
+var _wsStreamRunning = false;
+
+// ── Override: applyLoadGcodeFromNcSender ──────────────────────────────────────
+// In standalone mode there is no ncSender — direct the user to "Load from File".
+async function applyLoadGcodeFromNcSender() {
+  var statusEl = document.getElementById('apply-gcode-status');
+  if (statusEl) {
+    statusEl.textContent = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    statusEl.className = 'status-line warn';
+  }
+  setFooterStatus('Standalone mode: use \u201cLoad from File\u201d to load G-code.', 'warn');
+}
+
+// ── Override: sendCompToNcSender ──────────────────────────────────────────────
+// In standalone mode this streams the compensated G-code line-by-line to the
+// controller over serial instead of pushing it to ncSender.
+async function sendCompToNcSender(gcodeText, label) {
+  if (!gcodeText) { alert('No compensated G-code. Apply compensation first.'); return; }
+  if (!_wsConnected) { alert('Not connected. Click \u201cConnect Serial\u201d and select a port first.'); return; }
+  if (_wsStreamRunning) { alert('A G-code stream is already running. Stop it first.'); return; }
+
+  // Filter out blank lines and pure comment lines; keep all real G-code lines.
+  var allLines = gcodeText.split('\n');
+  var toSend = [];
+  for (var i = 0; i < allLines.length; i++) {
+    var l = allLines[i].trim();
+    if (!l || l.charAt(0) === ';' || l.charAt(0) === '(' || l.charAt(0) === '%') continue;
+    toSend.push(l);
+  }
+
+  if (!toSend.length) { alert('No G-code lines to send.'); return; }
+
+  var confirmed = confirm(
+    'Send ' + toSend.length + ' G-code line' + (toSend.length !== 1 ? 's' : '') +
+    ' (' + (label || 'compensated') + ') to the machine?\n\n' +
+    'WARNING: The machine will start moving immediately. Make sure it is safe to proceed.'
+  );
+  if (!confirmed) return;
+
+  _wsStreamRunning = true;
+
+  // Determine which status element to update based on label.
+  var isFace = (label && label.indexOf('face') >= 0);
+  var statusEl = document.getElementById(isFace ? 'apply-face-status' : 'apply-surface-status');
+
+  // Inject a Stop button next to the status line so the user can abort.
+  var stopBtnId = 'ws-stream-stop-btn';
+  var existingStop = document.getElementById(stopBtnId);
+  if (existingStop) existingStop.remove();
+  var stopBtn = document.createElement('button');
+  stopBtn.id = stopBtnId;
+  stopBtn.className = 'btn';
+  stopBtn.style.cssText = 'background:#c0392b;border-color:#c0392b;color:#fff;margin-top:6px';
+  stopBtn.textContent = '\u25a0 Stop Stream';
+  stopBtn.onclick = function () { _wsStreamRunning = false; };
+  if (statusEl && statusEl.parentNode) {
+    statusEl.parentNode.insertBefore(stopBtn, statusEl.nextSibling);
+  }
+
+  function _cleanup() {
+    _wsStreamRunning = false;
+    var btn = document.getElementById(stopBtnId);
+    if (btn) btn.remove();
+  }
+
+  setFooterStatus('Streaming G-code to machine\u2026 (0/' + toSend.length + ')', 'ok');
+
+  try {
+    for (var j = 0; j < toSend.length; j++) {
+      if (!_wsStreamRunning) {
+        var stopMsg = 'Stream stopped by user at line ' + (j + 1) + ' of ' + toSend.length + '.';
+        if (statusEl) { statusEl.textContent = stopMsg; statusEl.className = 'status-line warn'; }
+        setFooterStatus(stopMsg, 'warn');
+        _cleanup();
+        return;
+      }
+      if (!_wsConnected) {
+        var discMsg = 'Stream aborted: serial connection lost at line ' + (j + 1) + '.';
+        if (statusEl) { statusEl.textContent = discMsg; statusEl.className = 'status-line bad'; }
+        setFooterStatus(discMsg, 'bad');
+        _cleanup();
+        return;
+      }
+      var pct = Math.round(((j + 1) / toSend.length) * 100);
+      var progMsg = 'Streaming: line ' + (j + 1) + ' of ' + toSend.length + ' (' + pct + '%)';
+      if (statusEl) { statusEl.textContent = progMsg; statusEl.className = 'status-line'; }
+      setFooterStatus(progMsg, 'ok');
+
+      await sendCommand(toSend[j], 60000);
+    }
+    var doneMsg = 'Stream complete: ' + toSend.length + ' lines sent to machine.';
+    if (statusEl) { statusEl.textContent = doneMsg; statusEl.className = 'status-line good'; }
+    setFooterStatus(doneMsg, 'ok');
+  } catch (e) {
+    var errMsg = 'Stream error: ' + e.message;
+    if (statusEl) { statusEl.textContent = errMsg; statusEl.className = 'status-line bad'; }
+    setFooterStatus(errMsg, 'bad');
+  } finally {
+    _cleanup();
+  }
 }
 </script>
 </body>
