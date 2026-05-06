@@ -227,7 +227,9 @@ describe('Settings and Exports Module', () => {
       const result = saveSettings('testKey', settings);
 
       expect(result).toBe(true);
-      expect(localStorage.setItem).toHaveBeenCalledWith('testKey', JSON.stringify(settings));
+      // Verify we can retrieve it
+      const retrieved = localStorage.getItem('testKey');
+      expect(retrieved).toBe(JSON.stringify(settings));
     });
 
     test('should load settings from localStorage', () => {
@@ -240,12 +242,14 @@ describe('Settings and Exports Module', () => {
         }
       };
 
-      localStorage.getItem.mockReturnValue(JSON.stringify({ spacing: 10 }));
+      // Set up test data
+      localStorage.setItem('testKey', JSON.stringify({ spacing: 10 }));
 
       const result = loadSettings('testKey', { spacing: 5 });
       expect(result.spacing).toBe(10);
 
-      localStorage.getItem.mockReturnValue(null);
+      // Test with no stored value
+      localStorage.removeItem('testKey');
       const defaultResult = loadSettings('testKey', { spacing: 5 });
       expect(defaultResult.spacing).toBe(5);
     });

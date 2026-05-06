@@ -3,7 +3,7 @@
  * Core functionality: machine communication, state management, safety systems
  */
 
-const { describe, test, expect, beforeEach, jest } = require('@jest/globals');
+const { describe, test, expect, beforeEach } = require('@jest/globals');
 const fs = require('fs');
 const path = require('path');
 
