@@ -48,6 +48,7 @@ cat src-standalone/config-header.html \
     src-standalone/js/settings-and-exports.js \
     src-standalone/js/diagnostics.js \
     src-standalone/js/layout-editor.js \
+    src-standalone/js/tool-change-helper.js \
     standalone/src/webserial-transport.js \
     src-standalone/config-footer.html \
     > standalone.html

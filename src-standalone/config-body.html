@@ -1390,6 +1390,52 @@
         <div id="apply-gcode-bounds-info" class="callout mini" style="margin-top:8px;display:none"></div>
       </div>
 
+      <!-- Tool Change & Re-Zero Helper -->
+      <div class="panel" data-panel-key="apply-tool-change">
+        <div class="box-title">&#128295; Tool Change & Re-Zero Helper</div>
+        <div class="callout mini" style="margin-bottom:10px">
+          Save your reference probe position, then return to it after changing from touch probe to cutting bit to re-establish Z0.
+          This ensures the cutting bit shares the same Z reference as the probe measurements.
+        </div>
+
+        <!-- Reference Position Display -->
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:6px">📍 Saved Reference Position</div>
+          <div id="tool-change-ref-display" style="font-family:monospace;font-size:13px;color:var(--muted)">
+            No reference position saved yet
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn secondary" id="tool-change-save-btn" onclick="toolChangeSaveReference()">
+            &#128190; Save Current Position
+          </button>
+          <button class="btn" id="tool-change-return-btn" onclick="toolChangeReturnAndReZero()" disabled>
+            &#8634; Return & Re-Zero Z
+          </button>
+        </div>
+
+        <!-- Status Indicator -->
+        <div id="tool-change-status" class="status-line" style="margin-bottom:10px"></div>
+
+        <!-- Workflow Checklist -->
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">&#9989; Tool Change Workflow</div>
+          <div style="font-size:12px;line-height:1.8">
+            <div id="workflow-step1" style="color:var(--muted)">&#9744; 1. Complete probe scan with touch probe</div>
+            <div id="workflow-step2" style="color:var(--muted)">&#9744; 2. Click "Save Current Position" (saves X0 Y0 Z)</div>
+            <div id="workflow-step3" style="color:var(--muted)">&#9744; 3. Remove touch probe, install cutting bit</div>
+            <div id="workflow-step4" style="color:var(--muted)">&#9744; 4. Click "Return & Re-Zero Z" (moves to saved XY, re-zeros Z)</div>
+            <div id="workflow-step5" style="color:var(--muted)">&#9744; 5. Load compensated G-code and run job</div>
+          </div>
+          <div class="mini" style="margin-top:8px;color:var(--muted)">
+            <strong>Why?</strong> The cutting bit must share the same Z0 reference as the touch probe.
+            Re-zeroing Z at the saved position ensures proper compensation alignment.
+          </div>
+        </div>
+      </div>
+
       <!-- Surface Z Compensation -->
       <div class="panel" data-panel-key="apply-surf-comp">
         <div class="box-title">&#9889; Surface Z Compensation</div>
