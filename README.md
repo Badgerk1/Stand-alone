@@ -101,6 +101,39 @@ bash build-standalone-ws.sh
 
 ---
 
+## Testing
+
+This project includes comprehensive automated tests using Jest.
+
+### Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### Coverage
+
+Current test coverage includes:
+- ✅ Core module (state management, position parsing, ALARM detection)
+- ✅ Probe engine (grid calculations, serpentine paths, interpolation)
+- ✅ Settings & exports (CSV/JSON export, G-code parsing, validation)
+- 🚧 Integration tests (coming soon)
+- 🚧 Transport layer tests (coming soon)
+
+See **[TESTING.md](./TESTING.md)** for complete testing documentation, writing tests, and contributing guidelines.
+
+---
+
 ## Requirements
 
 - **Browser:** Chrome, Edge, or Chromium-based (Web Serial requires Chromium)

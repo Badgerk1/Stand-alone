@@ -1,2 +1,17 @@
 # Backup files
 *.backup
+
+# Node modules
+node_modules/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Jest cache
+.jest/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
