@@ -393,8 +393,11 @@ async function stopNowAndSafeHome(reason) {
   try { var after = await getMachineSnapshot(); updateMachineHelperUI(after); } catch(_e) {}
 
   } finally {
-    // Outer finally: always release the double-stop guard.
+    // Outer finally: always release the double-stop guard and reset stop flags.
     _stopInProgress = false;
+    _stopRequested = false;
+    smStopFlag = false;
+    _outlineStopFlag = false;
   }
 }
 
@@ -596,6 +599,13 @@ async function retrySafetyMoves() {
     setFooterStatus('retrySafetyMoves: state check failed: ' + e.message, 'bad');
     return;
   }
+
+  // Clear stop flags so safety moves can proceed normally.
+  // The user has explicitly clicked Unlock to recover from an alarm,
+  // so we reset any previous stop request from before the alarm occurred.
+  _stopRequested = false;
+  smStopFlag = false;
+  _outlineStopFlag = false;
 
   _showAlarmWarning(false);
   _safetyMoveActive = true;
