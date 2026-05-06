@@ -1,0 +1,26 @@
+{
+  "name": "stand-alone-3d-probe",
+  "version": "21.0.0",
+  "description": "Web-based 3D Live Edge Probe for GRBL-compatible CNC machines",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "build": "bash build-standalone.sh && bash build-standalone-ws.sh"
+  },
+  "keywords": [
+    "cnc",
+    "grbl",
+    "probe",
+    "3d",
+    "edge-probe"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
