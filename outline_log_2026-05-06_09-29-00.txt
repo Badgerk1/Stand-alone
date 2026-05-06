@@ -1,0 +1,62 @@
+[09:28:39.974] Grid source: Detected Outline vector boundary (inset 2mm) — 20 polygon vertices from 5 rows / 5 cols
+[09:28:39.975] Grid bounds from outline polygon ±2mm inset: X-7.170→306.258 Y-7.338→238.087
+[09:28:39.976] Boundary mode: forced-rectangle (polygon boundary discarded — probing full rectangular region)
+[09:28:39.976] === Outline Surface Grid Probe ===
+[09:28:39.976] Bounds source: Detected Outline vector boundary (inset 2mm)
+[09:28:39.977] Grid: 2x2 = 4 points
+[09:28:39.977] Bounds: X-7.170→306.258 Y-7.338→238.087 edgeMargin=3.000mm sampling=edge-inclusive
+[09:28:39.977] Surface Z: -15.250 → clearanceZ=-10.250 (surfZ + retractAbove=5.000)
+[09:28:39.977] maxPlunge=10.000 (retractAbove + probeDown=5.000) probeFeed=500 travelFeed=12000
+[09:28:39.987] INITIAL RETRACT: Z to clearanceZ=-10.250
+[09:28:40.182] --- ROW 0/1 Y=-4.338 (edge-inclusive, edgeMargin=3.000mm) ---
+[09:28:40.182] ROW span: xLeft=-7.170, xRight=306.258, cols=2, dx=307.428 (edge-inclusive, edgeMargin=3.000mm)
+[09:28:40.182] Probing [0,0] X-4.170 Y-4.338 nearestRow(Y=0.000) xLeft=-5.496 xRight=305.591 nearestCol(X=0.000) yBottom=-6.916 yTop=237.916
+[09:28:40.463] PROBE PIN STATE: triggered=false before grid Z plunge at X=-4.168 Y=-4.338
+[09:28:40.464] PROBE: switching to G91 (relative) mode
+[09:28:40.464] PROBE: G38.3 Z-10.0000 F500 timeout=11200ms (clearanceZ=-10.250)
+[09:28:41.136] PROBE: restoring G90 (absolute) mode
+[09:28:41.147] PROBE RESULT: pinAfter=false stoppedShort=true startZ=-10.249 endZ=-15.331 traveled=5.082/10.000
+[09:28:41.148] -> Z=-15.3310
+[09:28:41.148] Probing [0,1] X303.258 Y-4.338 nearestRow(Y=0.000) xLeft=-5.496 xRight=305.591 nearestCol(X=300.000) yBottom=-9.166 yTop=239.753
+[09:28:41.153] TRAVEL: current pos X=-4.168 Y=-4.338 Z=-15.331
+[09:28:41.154] RETRACT: Z to safeTravelZ=-10.250 at F12000
+[09:28:41.349] TRAVEL: diagonal to X=303.258 Y=-4.338 at F12000
+[09:28:43.322] PROBE PIN STATE: triggered=false before grid Z plunge at X=303.256 Y=-4.338
+[09:28:43.323] PROBE: switching to G91 (relative) mode
+[09:28:43.323] PROBE: G38.3 Z-10.0000 F500 timeout=11200ms (clearanceZ=-10.250)
+[09:28:44.157] PROBE: restoring G90 (absolute) mode
+[09:28:44.168] PROBE RESULT: pinAfter=false stoppedShort=true startZ=-10.249 endZ=-16.665 traveled=6.416/10.000
+[09:28:44.168] -> Z=-16.6650
+[09:28:44.169] --- ROW 0 done: 2 probed, 0 skipped ---
+[09:28:44.169] ROW TRANSITION: row 0 done; moving to start of row 1 X=-7.170 Y=235.087
+[09:28:44.174] TRAVEL: current pos X=303.256 Y=-4.338 Z=-16.665
+[09:28:44.174] RETRACT: Z to safeTravelZ=-10.250 at F12000
+[09:28:44.403] TRAVEL: diagonal to X=-7.170 Y=235.087 at F12000
+[09:28:46.656] --- ROW 1/1 Y=235.087 (edge-inclusive, edgeMargin=3.000mm) ---
+[09:28:46.657] ROW span: xLeft=-7.170, xRight=306.258, cols=2, dx=307.428 (edge-inclusive, edgeMargin=3.000mm)
+[09:28:46.657] Probing [1,0] X-4.170 Y235.087 nearestRow(Y=231.000) xLeft=-7.912 xRight=308.258 nearestCol(X=0.000) yBottom=-6.916 yTop=237.916
+[09:28:46.661] TRAVEL: current pos X=-7.170 Y=235.087 Z=-10.249
+[09:28:46.662] TRAVEL: diagonal to X=-4.170 Y=235.087 at F12000
+[09:28:46.911] PROBE PIN STATE: triggered=false before grid Z plunge at X=-4.168 Y=235.087
+[09:28:46.912] PROBE: switching to G91 (relative) mode
+[09:28:46.912] PROBE: G38.3 Z-10.0000 F500 timeout=11200ms (clearanceZ=-10.250)
+[09:28:47.653] PROBE: restoring G90 (absolute) mode
+[09:28:47.663] PROBE RESULT: pinAfter=false stoppedShort=true startZ=-10.249 endZ=-15.912 traveled=5.663/10.000
+[09:28:47.664] -> Z=-15.9120
+[09:28:47.664] Probing [1,1] X303.258 Y235.087 nearestRow(Y=231.000) xLeft=-7.912 xRight=308.258 nearestCol(X=300.000) yBottom=-9.166 yTop=239.753
+[09:28:47.669] TRAVEL: current pos X=-4.168 Y=235.087 Z=-15.912
+[09:28:47.670] RETRACT: Z to safeTravelZ=-10.250 at F12000
+[09:28:47.877] TRAVEL: diagonal to X=303.258 Y=235.087 at F12000
+[09:28:49.851] PROBE PIN STATE: triggered=false before grid Z plunge at X=303.256 Y=235.087
+[09:28:49.852] PROBE: switching to G91 (relative) mode
+[09:28:49.852] PROBE: G38.3 Z-10.0000 F500 timeout=11200ms (clearanceZ=-10.250)
+[09:28:50.635] PROBE: restoring G90 (absolute) mode
+[09:28:50.645] PROBE RESULT: pinAfter=false stoppedShort=true startZ=-10.249 endZ=-16.247 traveled=5.998/10.000
+[09:28:50.646] -> Z=-16.2470
+[09:28:50.646] --- ROW 1 done: 2 probed, 0 skipped ---
+[09:28:50.648] Surface grid probe complete! 4 probed, 0 skipped (outside boundary or no contact), 4 total grid points.
+[09:28:50.657] Finish: highest measured surface Z=-15.331mm, clearance offset=10.0mm → retracting to work Z -5.331
+[09:28:50.946] Finish: after retract X=303.256 Y=235.087 Z=-5.330
+[09:28:50.947] Finish: returning to X0.000 Y0.000
+[09:28:53.160] Finish: after return X=0.003 Y=0.000 Z=-5.330
+[09:28:53.161] Returning to work origin X0 Y0…
