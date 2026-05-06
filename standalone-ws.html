@@ -1614,6 +1614,9 @@
     <!-- ── APPLY TAB ─────────────────────────────────────────────────── -->
     <div class="tab-panel" id="pane-apply">
 
+  <!-- ── Jog Controls (teleported here from Setup tab when Apply tab is active) ── -->
+  <div class="panel" id="apply-jog-panel" data-panel-key="apply-jog-controls"></div>
+
       <!-- G-code Source -->
       <div class="panel" data-panel-key="apply-gcode-src">
         <div class="box-title">&#128196; G-code Source</div>
@@ -1648,6 +1651,9 @@
         <div class="btn-row" style="margin-bottom:10px">
           <button class="btn secondary" id="tool-change-save-btn" onclick="toolChangeSaveReference()">
             &#128190; Save Current Position
+          </button>
+          <button class="btn ghost" id="tool-change-move-btn" onclick="toolChangeMoveToReference()" disabled>
+            &#128205; Move to Reference
           </button>
           <button class="btn" id="tool-change-return-btn" onclick="toolChangeReturnAndReZero()" disabled>
             &#8634; Return & Re-Zero Z
@@ -4002,14 +4008,19 @@ function switchTab(id){
     if(t.getAttribute('data-tab') === id) t.classList.add('active');
   });
 
-  // Teleport jog controls between Setup tab and Probe tab
+  // Teleport jog controls between Setup tab, Probe tab, and Apply tab
   var jogCard = document.getElementById('jog-controls-card');
   var probeHolder = document.getElementById('probe-jog-panel');
+  var applyHolder = document.getElementById('apply-jog-panel');
   var setupAnchor = document.getElementById('jog-original-anchor');
-  if (jogCard && probeHolder && setupAnchor) {
+  if (jogCard && probeHolder && applyHolder && setupAnchor) {
     if (id === 'top') {
       // Move jog card into the probe placeholder and apply compact style
       probeHolder.appendChild(jogCard);
+      jogCard.classList.add('jog-compact');
+    } else if (id === 'apply') {
+      // Move jog card into the apply placeholder and apply compact style
+      applyHolder.appendChild(jogCard);
       jogCard.classList.add('jog-compact');
     } else {
       // Return jog card to its dedicated top-level setup panel (setup-jog-controls)
@@ -16914,6 +16925,69 @@ async function toolChangeSaveReference() {
   }
 }
 
+// ── Move to Reference XY Position (without probing) ──────────────────────────
+async function toolChangeMoveToReference() {
+  if (!_toolChangeRefPos) {
+    alert('No reference position saved. Click "Save Current Position" first.');
+    return;
+  }
+
+  var statusEl = document.getElementById('tool-change-status');
+
+  var confirmed = confirm(
+    'This will move to the saved reference position:\n' +
+    'X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3) + '\n\n' +
+    'Make sure:\n' +
+    '✓ Path is clear for safe travel\n' +
+    '✓ Machine is ready to move\n\n' +
+    'Continue?'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setFooterStatus('Moving to reference position...', 'ok');
+    if (statusEl) {
+      statusEl.textContent = 'Moving to reference XY position...';
+      statusEl.className = 'status-line';
+    }
+
+    // Get current position and settings
+    var currentSnap = await getMachineSnapshot();
+    var cfg = getSettingsFromUI();
+    var safeTravelZ = cfg.surfaceTravelZ || 5;
+
+    // Step 1: Raise to safe travel height
+    await sendCommand('G90');
+    await sleep(20);
+    await sendCommand('G0 Z' + safeTravelZ.toFixed(3) + ' F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(10000);
+
+    setFooterStatus('Moving to XY reference...', 'ok');
+
+    // Step 2: Move to XY reference position
+    await sendCommand('G0 X' + _toolChangeRefPos.x.toFixed(3) +
+                     ' Y' + _toolChangeRefPos.y.toFixed(3) +
+                     ' F' + (cfg.travelFeedRate || 1200));
+    await sleep(50);
+    await _waitForIdleOrStop(15000);
+
+    if (statusEl) {
+      statusEl.textContent = 'At reference position. Use jog controls or "Return & Re-Zero Z" to probe and set Z0.';
+      statusEl.className = 'status-line good';
+    }
+    setFooterStatus('Successfully moved to reference XY position.', 'ok');
+
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Error: ' + e.message;
+      statusEl.className = 'status-line bad';
+    }
+    setFooterStatus('Error moving to reference: ' + e.message, 'bad');
+  }
+}
+
 // ── Return to Reference Position and Re-Zero Z ────────────────────────────────
 async function toolChangeReturnAndReZero() {
   if (!_toolChangeRefPos) {
@@ -17033,6 +17107,7 @@ async function toolChangeReturnAndReZero() {
 // ── Update UI Elements ────────────────────────────────────────────────────────
 function _toolChangeUpdateUI() {
   var displayEl = document.getElementById('tool-change-ref-display');
+  var moveBtn = document.getElementById('tool-change-move-btn');
   var returnBtn = document.getElementById('tool-change-return-btn');
 
   if (_toolChangeRefPos) {
@@ -17045,12 +17120,18 @@ function _toolChangeUpdateUI() {
         'Y: ' + _toolChangeRefPos.y.toFixed(3) + 'mm<br>' +
         'Z: ' + _toolChangeRefPos.z.toFixed(3) + 'mm' + zeroStatus;
     }
+    if (moveBtn) {
+      moveBtn.disabled = false;
+    }
     if (returnBtn) {
       returnBtn.disabled = false;
     }
   } else {
     if (displayEl) {
       displayEl.innerHTML = 'No reference position saved yet';
+    }
+    if (moveBtn) {
+      moveBtn.disabled = true;
     }
     if (returnBtn) {
       returnBtn.disabled = true;
