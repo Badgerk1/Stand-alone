@@ -49,7 +49,7 @@ The Stand-alone 3D Live Edge Probe uses a **modular, layered architecture** with
 ┌─────────────────────────────────────────────────────────────┐
 │                    Transport Layer                          │
 │  (Communication protocol implementation)                    │
-│  • ncSender API (fetch) OR                                 │
+│  • Sender API (fetch) OR                                 │
 │  • Web Serial (USB) OR                                     │
 │  • WebSocket (network)                                      │
 └─────────────────────────────────────────────────────────────┘
@@ -617,7 +617,7 @@ The codebase uses **function override pattern** to support multiple connection t
 ```javascript
 // core.js defines base implementations:
 async function sendCommand(gcode, timeout) {
-  // Fetch-based ncSender API
+  // Fetch-based Sender API
 }
 
 async function _getState() {
@@ -642,9 +642,9 @@ async function _getState() {
 - All probe logic calls same function names
 - Transport-specific behavior injected transparently
 
-### ncSender API (Plugin Mode)
+### Sender API (Plugin Mode)
 
-**Base URL:** `http://localhost:8000` (ncSender server)
+**Base URL:** `http://localhost:8000` (Sender server)
 
 **Endpoints:**
 
@@ -668,13 +668,13 @@ Plugin: sendCommand('G1 X10')
   ↓
 fetch('/api/send-command', POST)
   ↓
-ncSender: Queue command
+Sender: Queue command
   ↓
-ncSender: Send to GRBL via serial
+Sender: Send to GRBL via serial
   ↓
 GRBL: Execute, respond 'ok'
   ↓
-ncSender: Resolve fetch promise
+Sender: Resolve fetch promise
   ↓
 Plugin: Command complete
 ```

@@ -25,7 +25,7 @@
 
 The **Stand-alone 3D Live Edge Probe** is a comprehensive web-based CNC probing application that provides advanced 3D surface and edge probing capabilities for GRBL-compatible CNC machines. It operates in multiple modes:
 
-1. **Plugin Mode** - Runs inside ncSender as a plugin via fetch-based API
+1. **Plugin Mode** - Runs inside Sender as a plugin via fetch-based API
 2. **Standalone Mode (Web Serial)** - Direct browser-to-GRBL connection via USB using Web Serial API
 3. **Standalone Mode (WebSocket)** - Network connection to FluidNC, grblHAL, or similar network-enabled controllers
 
@@ -398,8 +398,8 @@ await moveMachineZAbs(z, feed)
 1. **Set Stop Flags** - `_stopRequested`, `smStopFlag`, `_outlineStopFlag`
 2. **Feed Hold** - Send `!` real-time command (halts motion ASAP)
 3. **Poll for Hold** - Wait up to 1s for status = `Hold`
-4. **Clear Queue** - Try ncSender-compatible safe-stop endpoints:
-   - `/api/gcode-job/stop` (ncSender job stop)
+4. **Clear Queue** - Try Sender-compatible safe-stop endpoints:
+   - `/api/gcode-job/stop` (Sender job stop)
    - `/api/probe/stop` (probe-op stop)
    - `/api/gcode/stop` (legacy fallback)
    - **Never auto-sends `~` (cycle start)** - only via explicit user button
@@ -532,7 +532,7 @@ clearPanelSettings(panelId)
 **JSON Export (`saveMeshToStorage`)**:
 ```json
 {
-  "pluginId": "com.ncsender.edgeprobe.combined",
+  "pluginId": "com.sender.edgeprobe.combined",
   "pluginVersion": "V21.0",
   "version": "1.7.0",
   "timestamp": "2026-05-03T18:30:00.000Z",
@@ -605,7 +605,7 @@ bilinearInterpolateZ(meshData, gridConfig, x, y)
 3. Choose compensation mode: Surface Z adjustment or Face Y offset
 4. Click "Compensate G-code"
 5. Preview original vs. compensated (line count, coordinate stats)
-6. Send to ncSender job queue (plugin mode) or direct to machine (standalone)
+6. Send to Sender job queue (plugin mode) or direct to machine (standalone)
 
 ---
 
@@ -858,7 +858,7 @@ async function requireStartupHomingPreflight(runLabel)
 
 ## API and Integration
 
-### ncSender Plugin API (Fetch-Based)
+### Sender Plugin API (Fetch-Based)
 
 **Endpoints:**
 
@@ -869,7 +869,7 @@ POST /api/send-command
   "command": "G1 X10 Y20 F600",
   "meta": {
     "sourceId": "plugin",
-    "plugin": "com.ncsender.edgeprobe.combined"
+    "plugin": "com.sender.edgeprobe.combined"
   }
 }
 
@@ -944,8 +944,8 @@ POST /api/gcode/stop       // Legacy fallback
 
 ### Quick Start
 
-**Plugin Mode (ncSender):**
-1. Install plugin in ncSender
+**Plugin Mode (Sender):**
+1. Install plugin in Sender
 2. Ensure machine is homed
 3. Jog to probe start position
 4. Configure probe settings (grid, feeds, clearance)
@@ -1031,7 +1031,7 @@ POST /api/gcode/stop       // Legacy fallback
 ## License and Credits
 
 **Author:** Badgerk1
-**Plugin ID:** `com.ncsender.edgeprobe.combined`
+**Plugin ID:** `com.sender.edgeprobe.combined`
 **Version:** V21.0
 
 **Technologies:**
@@ -1039,7 +1039,7 @@ POST /api/gcode/stop       // Legacy fallback
 - GRBL protocol (machine control)
 - Web Serial API (USB connection)
 - WebSocket (network connection)
-- ncSender plugin API (fetch-based integration)
+- Sender plugin API (fetch-based integration)
 
 **Repository:** [Badgerk1/Stand-alone](https://github.com/Badgerk1/Stand-alone)
 

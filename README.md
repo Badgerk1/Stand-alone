@@ -2,7 +2,7 @@
 
 **Web-based 3D Live Edge Probe for GRBL-compatible CNC machines**
 
-A comprehensive probing application that provides advanced 3D surface and edge probing capabilities. Runs as an ncSender plugin, or standalone via USB (Web Serial) or network (WebSocket).
+A comprehensive probing application that provides advanced 3D surface and edge probing capabilities. Runs as a Sender plugin, or standalone via USB (Web Serial) or network (WebSocket).
 
 ---
 
@@ -14,7 +14,7 @@ A comprehensive probing application that provides advanced 3D surface and edge p
 - **Combined Mode** - Surface + Face probing in a single operation
 - **Real-time 3D Visualization** - Three.js-based live probe visualization
 - **G-code Compensation** - Adjust toolpaths for uneven surfaces
-- **Multiple Connection Modes** - Plugin (ncSender), USB Serial, or Network (WebSocket)
+- **Multiple Connection Modes** - Plugin (Sender), USB Serial, or Network (WebSocket)
 - **Advanced Safety** - ALARM recovery, feed hold, probe trigger validation
 - **Data Management** - Export/import results as JSON or CSV
 
@@ -22,8 +22,8 @@ A comprehensive probing application that provides advanced 3D surface and edge p
 
 ## Quick Start
 
-### Plugin Mode (ncSender)
-1. Install plugin in ncSender
+### Plugin Mode (Sender)
+1. Install plugin in Sender
 2. Open "3D Live Edge Probe" panel
 3. Jog to start position, configure settings
 4. Click "Run Surface Probe"
@@ -146,7 +146,7 @@ See **[TESTING.md](./TESTING.md)** for complete testing documentation, writing t
 ## System Requirements
 
 ### For Plugin Mode
-- ncSender installed and running
+- Sender installed and running
 - GRBL-compatible controller connected via USB
 
 ### For Standalone USB Mode
