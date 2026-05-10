@@ -796,8 +796,8 @@ async function getMachineSnapshot(){
   var state = await _getState();
   var ms = _machineStateFrom(state);
   var pos = await getWorkPosition();
-  var m = _parsePos(ms.MPos);
-  var wco = _parsePos(ms.WCO);
+  var m = _parsePos(ms.MPos || ms.machinePosition || ms.mpos);
+  var wco = _parsePos(ms.WCO || ms.wco);
   var machine = m ? {x:m.x, y:m.y, z:m.z} : (wco ? {x:pos.x + wco.x, y:pos.y + wco.y, z:pos.z + wco.z} : null);
   var _feedOvr    = ms.feedrateOverride  != null ? Number(ms.feedrateOverride)  : NaN;
   var _rapidOvr   = ms.rapidOverride     != null ? Number(ms.rapidOverride)     : NaN;
@@ -1150,6 +1150,10 @@ async function checkHomedStatus(){
 }
 
 function _parsePos(str){
+  if(str && typeof str === 'object' && !Array.isArray(str)){
+    var ox = parseFloat(str.x), oy = parseFloat(str.y), oz = parseFloat(str.z);
+    if(!isNaN(ox) && !isNaN(oy) && !isNaN(oz)) return {x:ox, y:oy, z:oz};
+  }
   if(!str || typeof str !== 'string') return null;
   var p = str.split(',').map(function(v){ return parseFloat(v.trim()); });
   return p.length >= 3 && p.every(function(v){ return !isNaN(v); }) ? {x:p[0], y:p[1], z:p[2]} : null;
@@ -1165,6 +1169,15 @@ async function getWorkPosition(){
   var m = _parsePos(ms.MPos), wco = _parsePos(ms.WCO);
   if(m && wco) return {x:m.x-wco.x, y:m.y-wco.y, z:m.z-wco.z, status: status, probeTriggered: probeTriggered};
   if(m) return {x:m.x, y:m.y, z:m.z, status: status, probeTriggered: probeTriggered};
+  var wp = _parsePos(ms.workPosition || ms.position || ms.pos || null);
+  if(wp) return {x:wp.x, y:wp.y, z:wp.z, status: status, probeTriggered: probeTriggered};
+  if(ms.x != null && ms.y != null && ms.z != null){
+    var dx = parseFloat(ms.x), dy = parseFloat(ms.y), dz = parseFloat(ms.z);
+    if(!isNaN(dx) && !isNaN(dy) && !isNaN(dz)) return {x:dx, y:dy, z:dz, status: status, probeTriggered: probeTriggered};
+  }
+  var rootW = _parsePos(state.wpos || state.WPos || state.workPos || null);
+  if(rootW) return {x:rootW.x, y:rootW.y, z:rootW.z, status: status, probeTriggered: probeTriggered};
+  pluginDebug('getWorkPosition FAIL: ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
   throw new Error('Could not read current position from Sender');
 }
 
@@ -1909,4 +1922,3 @@ function pluginCleanupOnClose() {
 // which can clear the controller's homed state even when the user only
 // closed the UI panel after successfully unlocking with $X.
 // Cleanup is triggered explicitly by the plugin host via index.js onUnload.
-

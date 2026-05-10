@@ -87,6 +87,11 @@ describe('Core Module', () => {
   });
 
   describe('Position Parsing', () => {
+    test('should support object-style xyz parsing in _parsePos', () => {
+      expect(coreJs).toMatch(/typeof str === 'object' && !Array\.isArray\(str\)/);
+      expect(coreJs).toMatch(/parseFloat\(str\.x\), oy = parseFloat\(str\.y\), oz = parseFloat\(str\.z\)/);
+    });
+
     test('should parse WPos coordinates correctly', () => {
       const parseWPos = (str) => {
         const match = str.match(/WPos:([-\d.]+),([-\d.]+),([-\d.]+)/);
@@ -148,6 +153,17 @@ describe('Core Module', () => {
 
       expect(isHoming('<Home|MPos:0,0,0>')).toBe(true);
       expect(isHoming('<Idle|MPos:0,0,0>')).toBe(false);
+    });
+
+    test('should include alternate getWorkPosition fallbacks and diagnostics', () => {
+      expect(coreJs).toContain('ms.workPosition || ms.position || ms.pos || null');
+      expect(coreJs).toContain('state.wpos || state.WPos || state.workPos || null');
+      expect(coreJs).toContain("pluginDebug('getWorkPosition FAIL:");
+    });
+
+    test('should tolerate alternate machine position fields in getMachineSnapshot', () => {
+      expect(coreJs).toContain('ms.MPos || ms.machinePosition || ms.mpos');
+      expect(coreJs).toContain('ms.WCO || ms.wco');
     });
   });
 
