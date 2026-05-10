@@ -1761,6 +1761,19 @@
         <pre id="apply-preview" class="mono" style="max-height:200px;overflow-y:auto;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0d111a;font-size:11px;white-space:pre-wrap;color:var(--muted)">No compensated G-code yet</pre>
       </div>
 
+      <!-- ── Apply Tab — Unified Log ──────────────────────────────────────── -->
+      <div class="panel" data-panel-key="apply-log-panel">
+        <div class="box-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>&#128221; Apply Log</span>
+          <span style="display:flex;gap:6px">
+            <button class="btn ghost" style="font-size:11px;padding:4px 10px" onclick="applyDownloadLog()">&#8659; Download Log</button>
+            <button class="btn ghost" style="font-size:11px;padding:4px 10px" onclick="applyClearLog()">&#10005; Clear</button>
+          </span>
+        </div>
+        <div class="callout mini" style="margin-bottom:8px">All Apply tab activity is logged here. Click <strong>Download Log</strong> to save and share for debugging.</div>
+        <div id="apply-unified-log" class="log-area" style="min-height:80px;max-height:300px;overflow-y:auto;display:none"></div>
+      </div>
+
     </div><!-- /pane-apply -->
 
     <!-- ── OUTLINE TAB ───────────────────────────────────────────────── -->
@@ -3912,11 +3925,13 @@ function bindProbeDimensionUI(){
       var reader = new FileReader();
       reader.onload = function(ev) {
         applyOriginalGcode = ev.target.result;
+        var lineCount = applyOriginalGcode.split('\n').length;
         var statusEl = document.getElementById('apply-gcode-status');
         if (statusEl) {
-          statusEl.textContent = 'Loaded: ' + file.name + ' (' + applyOriginalGcode.split('\n').length + ' lines)';
+          statusEl.textContent = 'Loaded: ' + file.name + ' (' + lineCount + ' lines)';
           statusEl.className = 'status-line good';
         }
+        if (typeof applyLog === 'function') applyLog('Loaded G-code file: ' + file.name + ' (' + lineCount + ' lines)');
         applyUpdateButtons();
       };
       reader.readAsText(file);
@@ -4004,7 +4019,6 @@ function pluginCleanupOnClose() {
 // which can clear the controller's homed state even when the user only
 // closed the UI panel after successfully unlocking with $X.
 // Cleanup is triggered explicitly by the plugin host via index.js onUnload.
-
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(id){
@@ -4415,6 +4429,33 @@ function updateMeshTable_sm() {
 
 function applyLogSurface(msg) {
   var el = document.getElementById('apply-surface-log');
+  if (el) {
+    el.style.display = 'block';
+    var ts = tsMs();
+    var line = document.createElement('div');
+    line.textContent = '[' + ts + '] ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+  applyLog('[SURFACE] ' + msg);
+}
+
+function applyLogFace(msg) {
+  var el = document.getElementById('apply-face-log');
+  if (el) {
+    el.style.display = 'block';
+    var ts = tsMs();
+    var line = document.createElement('div');
+    line.textContent = '[' + ts + '] ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+  applyLog('[FACE] ' + msg);
+}
+
+// Append to the unified Apply tab log
+function applyLog(msg) {
+  var el = document.getElementById('apply-unified-log');
   if (!el) return;
   el.style.display = 'block';
   var ts = tsMs();
@@ -4424,15 +4465,24 @@ function applyLogSurface(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-function applyLogFace(msg) {
-  var el = document.getElementById('apply-face-log');
-  if (!el) return;
-  el.style.display = 'block';
-  var ts = tsMs();
-  var line = document.createElement('div');
-  line.textContent = '[' + ts + '] ' + msg;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
+// Download unified log as text file
+function applyDownloadLog() {
+  var el = document.getElementById('apply-unified-log');
+  if (!el || !el.textContent.trim()) { alert('Apply log is empty.'); return; }
+  var text = Array.from(el.querySelectorAll('div')).map(function(d) { return d.textContent; }).join('\n');
+  var blob = new Blob([text], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'apply-log-' + Date.now() + '.txt';
+  a.click();
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
+}
+
+// Clear unified log
+function applyClearLog() {
+  var el = document.getElementById('apply-unified-log');
+  if (el) { el.innerHTML = ''; el.style.display = 'none'; }
 }
 
 function applyUpdateButtons() {
@@ -4472,16 +4522,26 @@ function applyDownloadCompensatedGcode(type) {
   var gcode = (type === 'face') ? applyFaceCompGcode : applySurfaceCompGcode;
   if (!gcode) { alert('No compensated G-code. Apply compensation first.'); return; }
   var blob = new Blob([gcode], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = 'compensated_' + type + '_' + Date.now() + '.nc';
   a.click();
+  applyLog('Downloaded compensated ' + type + ' G-code');
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
 }
 
 async function applySendToNcSender(type) {
   var gcode = (type === 'face') ? applyFaceCompGcode : applySurfaceCompGcode;
   if (!gcode) { alert('No compensated G-code. Apply compensation first.'); return; }
-  await sendCompToNcSender(gcode, 'compensated_' + type);
+  applyLog('Sending ' + type + ' G-code to ncSender...');
+  try {
+    await sendCompToNcSender(gcode, 'compensated_' + type);
+    applyLog('Send to ncSender finished for ' + type + ' G-code.');
+  } catch (e) {
+    applyLog('ERROR sending ' + type + ' G-code to ncSender: ' + e.message);
+    throw e;
+  }
 }
 
 function updateFaceMeshDataUI() {
@@ -5769,6 +5829,7 @@ var PLUGIN_ID = 'com.ncsender.edgeprobe.combined';
 
 async function applyLoadGcodeFromNcSender() {
   var statusEl = document.getElementById('apply-gcode-status');
+  applyLog('Loading G-code from ncSender...');
   try {
     // Try /api/gcode-files/current to get loaded G-code content
     var r = await fetch('/api/gcode-files/current');
@@ -5777,8 +5838,11 @@ async function applyLoadGcodeFromNcSender() {
       if (data && data.content) {
         applyOriginalGcode = data.content;
         var lines = applyOriginalGcode.split('\n').length;
-        if (statusEl) statusEl.textContent = 'Loaded from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : '');
-        statusEl.className = 'status-line good';
+        if (statusEl) {
+          statusEl.textContent = 'Loaded from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : '');
+          statusEl.className = 'status-line good';
+        }
+        applyLog('Loaded G-code from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : ''));
         applyUpdateButtons();
         return;
       }
@@ -5794,62 +5858,76 @@ async function applyLoadGcodeFromNcSender() {
         if (r3.ok) {
           applyOriginalGcode = await r3.text();
           var lines = applyOriginalGcode.split('\n').length;
-          if (statusEl) statusEl.textContent = 'Loaded: ' + filename + ' (' + lines + ' lines)';
-          statusEl.className = 'status-line good';
+          if (statusEl) {
+            statusEl.textContent = 'Loaded: ' + filename + ' (' + lines + ' lines)';
+            statusEl.className = 'status-line good';
+          }
+          applyLog('Loaded G-code from ncSender cache: ' + filename + ' (' + lines + ' lines)');
           applyUpdateButtons();
           return;
         }
       }
     }
     if (statusEl) { statusEl.textContent = 'No G-code loaded in ncSender. Load a file first.'; statusEl.className = 'status-line warn'; }
+    applyLog('ERROR: No G-code loaded in ncSender.');
   } catch(e) {
     if (statusEl) { statusEl.textContent = 'Error loading from ncSender: ' + e.message; statusEl.className = 'status-line bad'; }
+    applyLog('ERROR loading G-code from ncSender: ' + e.message);
   }
 }
 
 async function applyAnalyzeGcodeBounds() {
   if (!applyOriginalGcode) { alert('Load G-code first.'); return; }
   var boundsEl = document.getElementById('apply-gcode-bounds-info');
-  // Client-side bounds analysis (same algorithm as server)
-  var bounds = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
-  var currentX = 0, currentY = 0, currentZ = 0;
-  var isAbsolute = true;
-  var lines = applyOriginalGcode.split('\n');
-  for (var i = 0; i < lines.length; i++) {
-    var trimmed = lines[i].trim().toUpperCase();
-    if (trimmed.startsWith('(') || trimmed.startsWith(';') || trimmed.startsWith('%')) continue;
-    if (trimmed.indexOf('G90') >= 0 && trimmed.indexOf('G90.1') < 0) isAbsolute = true;
-    if (trimmed.indexOf('G91') >= 0 && trimmed.indexOf('G91.1') < 0) isAbsolute = false;
-    if (trimmed.indexOf('G53') >= 0) continue;
-    var xM = trimmed.match(/X([+-]?\d*\.?\d+)/);
-    var yM = trimmed.match(/Y([+-]?\d*\.?\d+)/);
-    var zM = trimmed.match(/Z([+-]?\d*\.?\d+)/);
-    if (xM) { var v = parseFloat(xM[1]); currentX = isAbsolute ? v : currentX + v; }
-    if (yM) { var v2 = parseFloat(yM[1]); currentY = isAbsolute ? v2 : currentY + v2; }
-    if (zM) { var v3 = parseFloat(zM[1]); currentZ = isAbsolute ? v3 : currentZ + v3; }
-    if (xM || yM || zM) {
-      bounds.min.x = Math.min(bounds.min.x, currentX);
-      bounds.min.y = Math.min(bounds.min.y, currentY);
-      bounds.min.z = Math.min(bounds.min.z, currentZ);
-      bounds.max.x = Math.max(bounds.max.x, currentX);
-      bounds.max.y = Math.max(bounds.max.y, currentY);
-      bounds.max.z = Math.max(bounds.max.z, currentZ);
+  applyLog('Analyzing loaded G-code bounds...');
+  try {
+    // Client-side bounds analysis (same algorithm as server)
+    var bounds = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
+    var currentX = 0, currentY = 0, currentZ = 0;
+    var isAbsolute = true;
+    var lines = applyOriginalGcode.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var trimmed = lines[i].trim().toUpperCase();
+      if (trimmed.startsWith('(') || trimmed.startsWith(';') || trimmed.startsWith('%')) continue;
+      if (trimmed.indexOf('G90') >= 0 && trimmed.indexOf('G90.1') < 0) isAbsolute = true;
+      if (trimmed.indexOf('G91') >= 0 && trimmed.indexOf('G91.1') < 0) isAbsolute = false;
+      if (trimmed.indexOf('G53') >= 0) continue;
+      var xM = trimmed.match(/X([+-]?\d*\.?\d+)/);
+      var yM = trimmed.match(/Y([+-]?\d*\.?\d+)/);
+      var zM = trimmed.match(/Z([+-]?\d*\.?\d+)/);
+      if (xM) { var v = parseFloat(xM[1]); currentX = isAbsolute ? v : currentX + v; }
+      if (yM) { var v2 = parseFloat(yM[1]); currentY = isAbsolute ? v2 : currentY + v2; }
+      if (zM) { var v3 = parseFloat(zM[1]); currentZ = isAbsolute ? v3 : currentZ + v3; }
+      if (xM || yM || zM) {
+        bounds.min.x = Math.min(bounds.min.x, currentX);
+        bounds.min.y = Math.min(bounds.min.y, currentY);
+        bounds.min.z = Math.min(bounds.min.z, currentZ);
+        bounds.max.x = Math.max(bounds.max.x, currentX);
+        bounds.max.y = Math.max(bounds.max.y, currentY);
+        bounds.max.z = Math.max(bounds.max.z, currentZ);
+      }
     }
-  }
-  if (bounds.min.x === Infinity) bounds.min.x = 0;
-  if (bounds.min.y === Infinity) bounds.min.y = 0;
-  if (bounds.min.z === Infinity) bounds.min.z = 0;
-  if (bounds.max.x === -Infinity) bounds.max.x = 0;
-  if (bounds.max.y === -Infinity) bounds.max.y = 0;
-  if (bounds.max.z === -Infinity) bounds.max.z = 0;
+    if (bounds.min.x === Infinity) bounds.min.x = 0;
+    if (bounds.min.y === Infinity) bounds.min.y = 0;
+    if (bounds.min.z === Infinity) bounds.min.z = 0;
+    if (bounds.max.x === -Infinity) bounds.max.x = 0;
+    if (bounds.max.y === -Infinity) bounds.max.y = 0;
+    if (bounds.max.z === -Infinity) bounds.max.z = 0;
 
-  if (boundsEl) {
-    boundsEl.style.display = 'block';
-    boundsEl.innerHTML = '<strong>G-code Bounds:</strong> ' +
-      'X: ' + bounds.min.x.toFixed(2) + ' to ' + bounds.max.x.toFixed(2) +
-      ' &nbsp;|&nbsp; Y: ' + bounds.min.y.toFixed(2) + ' to ' + bounds.max.y.toFixed(2) +
-      ' &nbsp;|&nbsp; Z: ' + bounds.min.z.toFixed(2) + ' to ' + bounds.max.z.toFixed(2) +
-      ' &nbsp;|&nbsp; Size: ' + (bounds.max.x - bounds.min.x).toFixed(2) + ' &times; ' + (bounds.max.y - bounds.min.y).toFixed(2) + ' coords';
+    if (boundsEl) {
+      boundsEl.style.display = 'block';
+      boundsEl.innerHTML = '<strong>G-code Bounds:</strong> ' +
+        'X: ' + bounds.min.x.toFixed(2) + ' to ' + bounds.max.x.toFixed(2) +
+        ' &nbsp;|&nbsp; Y: ' + bounds.min.y.toFixed(2) + ' to ' + bounds.max.y.toFixed(2) +
+        ' &nbsp;|&nbsp; Z: ' + bounds.min.z.toFixed(2) + ' to ' + bounds.max.z.toFixed(2) +
+        ' &nbsp;|&nbsp; Size: ' + (bounds.max.x - bounds.min.x).toFixed(2) + ' &times; ' + (bounds.max.y - bounds.min.y).toFixed(2) + ' coords';
+    }
+    applyLog('Bounds analysis complete: X ' + bounds.min.x.toFixed(2) + ' to ' + bounds.max.x.toFixed(2) +
+      ', Y ' + bounds.min.y.toFixed(2) + ' to ' + bounds.max.y.toFixed(2) +
+      ', Z ' + bounds.min.z.toFixed(2) + ' to ' + bounds.max.z.toFixed(2));
+  } catch (e) {
+    applyLog('ERROR analyzing G-code bounds: ' + e.message);
+    throw e;
   }
 }
 
@@ -5864,6 +5942,8 @@ function applyServerSurfaceCompensation() {
   var surfLogEl = document.getElementById('apply-surface-log');
   if (surfLogEl) surfLogEl.innerHTML = '';
 
+  applyLog('Starting surface compensation: refZ=' + refZ + ', subdivide=' + subdivide +
+    ', mesh=' + smGridConfig.colCount + 'x' + smGridConfig.rowCount);
   applyLogSurface('Applying surface Z compensation (Reference Z=' + refZ + ', Subdivide=' + subdivide + ')...');
 
   if (subdivide) {
@@ -5872,11 +5952,13 @@ function applyServerSurfaceCompensation() {
       var result = applySubdividedCompensation(applyOriginalGcode, smMeshData, smGridConfig, refZ);
       applySurfaceCompGcode = result.gcode;
       applyLogSurface('Done! ' + result.modified + ' moves processed, ' + result.segments + ' segments generated.');
+      applyLog('Surface compensation complete: ' + result.modified + ' moves processed, ' + result.segments + ' segments generated.');
       if (statusEl) { statusEl.textContent = 'Compensation applied: ' + result.modified + ' moves, ' + result.segments + ' segments (subdivided).'; statusEl.className = 'status-line good'; }
       applyUpdatePreview(applySurfaceCompGcode);
       applyUpdateButtons();
     } catch(e) {
       applyLogSurface('ERROR: ' + e.message);
+      applyLog('ERROR during surface compensation: ' + e.message);
       if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status-line bad'; }
     }
   } else {
@@ -5885,11 +5967,13 @@ function applyServerSurfaceCompensation() {
       var result = smApplyCompensationCore(applyOriginalGcode, smMeshData, smGridConfig, refZ);
       applySurfaceCompGcode = result.gcode;
       applyLogSurface('Done! ' + result.modified + ' Z values modified.');
+      applyLog('Surface compensation complete: ' + result.modified + ' Z values modified.');
       if (statusEl) { statusEl.textContent = 'Compensation applied: ' + result.modified + ' Z values modified.'; statusEl.className = 'status-line good'; }
       applyUpdatePreview(applySurfaceCompGcode);
       applyUpdateButtons();
     } catch(e) {
       applyLogSurface('ERROR: ' + e.message);
+      applyLog('ERROR during surface compensation: ' + e.message);
       if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status-line bad'; }
     }
   }
@@ -6105,6 +6189,8 @@ function applyFaceCompensationFromTab() {
     }
   }
 
+  applyLog('Starting face compensation: axis=' + axis + ', refPos=' + refPos + ', uniform=' + uniformOffset +
+    ', meshPoints=' + faceData.length);
   applyLogFace('Applying face compensation (axis=' + axis + ', refPos=' + refPos + ', uniform=' + uniformOffset + ')...');
 
   try {
@@ -6114,11 +6200,13 @@ function applyFaceCompensationFromTab() {
     var result = faceApplyCompensationCore(applyOriginalGcode, faceData, refPos, axis, uniformOffset);
     applyFaceCompGcode = result.gcode;
     applyLogFace('Done! ' + result.modified + ' ' + axis + ' values adjusted, ' + (result.segments || 0) + ' segments generated.');
+    applyLog('Face compensation complete: ' + result.modified + ' ' + axis + ' values adjusted, ' + (result.segments || 0) + ' segments generated.');
     if (statusEl) { statusEl.textContent = 'Face compensation applied: ' + result.modified + ' values adjusted, ' + (result.segments || 0) + ' segments.'; statusEl.className = 'status-line good'; }
     applyUpdatePreview(applyFaceCompGcode);
     applyUpdateButtons();
   } catch(e) {
     applyLogFace('ERROR: ' + e.message);
+    applyLog('ERROR during face compensation: ' + e.message);
     if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status-line bad'; }
   }
 }
@@ -6499,7 +6587,6 @@ function clearCombinedMesh() {
   var statusEl = document.getElementById('comb-meshStorageStatus');
   if (statusEl) statusEl.textContent = 'Combined data cleared.';
 }
-
 // ── Probe Visualizer helpers ──────────────────────────────────────────────────
 var _smPvizTrackActive = false;
 var _smPvizTrackTimer = null;
@@ -16875,6 +16962,42 @@ function _onPaneDrop(e) {
 var _toolChangeRefPos = null;  // {x, y, z} saved reference position
 var _toolChangeZReZeroed = false;  // flag indicating Z has been re-zeroed
 
+function _toolChangeResolveSurfaceSearchDepth(cfg) {
+  // Read probe feed from Outline tab first so tool-change re-zero matches the
+  // same probe feed users expect from outline surface probing.
+  var outlineProbeFeedEl = document.getElementById('outlineProbeFeed');
+  var probeFeed = (outlineProbeFeedEl && Number(outlineProbeFeedEl.value) > 0)
+    ? Number(outlineProbeFeedEl.value)
+    : (cfg.probeFeed || 100);
+
+  // Mirror the Outline tab surface reference probe search-depth logic.
+  var surfProbeDepthModeEl = document.getElementById('outlineSurfProbeDepthMode');
+  var surfProbeDepthMode = (surfProbeDepthModeEl && surfProbeDepthModeEl.value === 'custom') ? 'custom' : 'auto';
+  var machineZTravelEl = document.getElementById('outlineMachineZTravel');
+  var machineZTravel = Math.max(10, (machineZTravelEl ? Number(machineZTravelEl.value) : 0) || 165);
+  var customPlungeEl = document.getElementById('outlineSurfRefMaxPlunge');
+  var customPlunge = Math.max(10, (customPlungeEl ? Number(customPlungeEl.value) : 0) || 200);
+  var allowedMax = Math.max(10, machineZTravel - 5);
+  var maxPlunge;
+  var depthSummary;
+
+  if (surfProbeDepthMode === 'auto') {
+    maxPlunge = allowedMax;
+    depthSummary = 'Surface search depth: Auto — machineZTravel=' +
+      machineZTravel.toFixed(0) + ', effective=' + maxPlunge.toFixed(0) + 'mm';
+  } else {
+    maxPlunge = Math.min(customPlunge, allowedMax);
+    depthSummary = 'Surface search depth: Custom — ' + customPlunge.toFixed(0) + 'mm' +
+      (customPlunge > allowedMax ? ' (clamped to ' + maxPlunge.toFixed(0) + 'mm)' : '');
+  }
+
+  return {
+    probeFeed: probeFeed,
+    maxPlunge: maxPlunge,
+    depthSummary: depthSummary
+  };
+}
+
 // Load saved reference position from localStorage on startup
 (function _toolChangeLoadSaved() {
   try {
@@ -17016,11 +17139,14 @@ async function toolChangeReturnAndReZero() {
   }
 
   var statusEl = document.getElementById('tool-change-status');
+  var cfg = getSettingsFromUI();
+  var probeSettings = _toolChangeResolveSurfaceSearchDepth(cfg);
 
   var confirmed = confirm(
     'This will:\n' +
     '1. Move to X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3) + '\n' +
-    '2. Probe down to find the surface\n' +
+    '2. Probe down to find the surface (max plunge ' + probeSettings.maxPlunge.toFixed(3) + 'mm)\n' +
+    '   ' + probeSettings.depthSummary + '\n' +
     '3. Set Z0 at that surface\n\n' +
     'Make sure:\n' +
     '✓ Touch probe removed, cutting bit installed\n' +
@@ -17035,13 +17161,19 @@ async function toolChangeReturnAndReZero() {
     // Preflight: abort if controller is in ALARM, machine is not homed, or probe is triggered
     await requireStartupHomingPreflight('tool change return & re-zero');
 
+    if (statusEl) {
+      statusEl.textContent = probeSettings.depthSummary;
+      statusEl.className = 'status-line';
+    }
+    setFooterStatus(probeSettings.depthSummary, 'ok');
+    pluginDebug('[tool-change] ' + probeSettings.depthSummary);
+
     setFooterStatus('Returning to reference position...', 'ok');
     if (statusEl) {
       statusEl.textContent = 'Moving to reference position...';
       statusEl.className = 'status-line';
     }
 
-    var cfg = getSettingsFromUI();
     var retractFeed = Math.max(100, cfg.travelFeedRate || 600);
     var machineSafeZ = isFinite(Number(cfg.machineSafeTopZ)) ? Number(cfg.machineSafeTopZ) : null;
 
@@ -17075,12 +17207,10 @@ async function toolChangeReturnAndReZero() {
     }
     setFooterStatus('Probing surface to establish Z0...', 'ok');
 
-    // Step 3: Probe down to find surface
-    // Use existing settings fields (probeFeed / topProbeDepth) — surfaceProbeFeedRate and
-    // surfaceProbeMaxPlunge are not registered in getSettingsFromUI() and would always
-    // evaluate to their fallback defaults.
-    var probeFeed = cfg.probeFeed || 100;
-    var maxPlunge = cfg.topProbeDepth || 20;
+    // Step 3: Probe down to find surface using the same Outline tab surface
+    // search-depth mode users configure for the dedicated surface reference probe.
+    var probeFeed = probeSettings.probeFeed;
+    var maxPlunge = probeSettings.maxPlunge;
 
     // Ensure probe is not triggered before plunge
     var preSnap = await getMachineSnapshot();

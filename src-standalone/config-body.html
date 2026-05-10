@@ -1523,6 +1523,19 @@
         <pre id="apply-preview" class="mono" style="max-height:200px;overflow-y:auto;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0d111a;font-size:11px;white-space:pre-wrap;color:var(--muted)">No compensated G-code yet</pre>
       </div>
 
+      <!-- ── Apply Tab — Unified Log ──────────────────────────────────────── -->
+      <div class="panel" data-panel-key="apply-log-panel">
+        <div class="box-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>&#128221; Apply Log</span>
+          <span style="display:flex;gap:6px">
+            <button class="btn ghost" style="font-size:11px;padding:4px 10px" onclick="applyDownloadLog()">&#8659; Download Log</button>
+            <button class="btn ghost" style="font-size:11px;padding:4px 10px" onclick="applyClearLog()">&#10005; Clear</button>
+          </span>
+        </div>
+        <div class="callout mini" style="margin-bottom:8px">All Apply tab activity is logged here. Click <strong>Download Log</strong> to save and share for debugging.</div>
+        <div id="apply-unified-log" class="log-area" style="min-height:80px;max-height:300px;overflow-y:auto;display:none"></div>
+      </div>
+
     </div><!-- /pane-apply -->
 
     <!-- ── OUTLINE TAB ───────────────────────────────────────────────── -->

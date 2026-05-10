@@ -6,6 +6,42 @@
 var _toolChangeRefPos = null;  // {x, y, z} saved reference position
 var _toolChangeZReZeroed = false;  // flag indicating Z has been re-zeroed
 
+function _toolChangeResolveSurfaceSearchDepth(cfg) {
+  // Read probe feed from Outline tab first so tool-change re-zero matches the
+  // same probe feed users expect from outline surface probing.
+  var outlineProbeFeedEl = document.getElementById('outlineProbeFeed');
+  var probeFeed = (outlineProbeFeedEl && Number(outlineProbeFeedEl.value) > 0)
+    ? Number(outlineProbeFeedEl.value)
+    : (cfg.probeFeed || 100);
+
+  // Mirror the Outline tab surface reference probe search-depth logic.
+  var surfProbeDepthModeEl = document.getElementById('outlineSurfProbeDepthMode');
+  var surfProbeDepthMode = (surfProbeDepthModeEl && surfProbeDepthModeEl.value === 'custom') ? 'custom' : 'auto';
+  var machineZTravelEl = document.getElementById('outlineMachineZTravel');
+  var machineZTravel = Math.max(10, (machineZTravelEl ? Number(machineZTravelEl.value) : 0) || 165);
+  var customPlungeEl = document.getElementById('outlineSurfRefMaxPlunge');
+  var customPlunge = Math.max(10, (customPlungeEl ? Number(customPlungeEl.value) : 0) || 200);
+  var allowedMax = Math.max(10, machineZTravel - 5);
+  var maxPlunge;
+  var depthSummary;
+
+  if (surfProbeDepthMode === 'auto') {
+    maxPlunge = allowedMax;
+    depthSummary = 'Surface search depth: Auto — machineZTravel=' +
+      machineZTravel.toFixed(0) + ', effective=' + maxPlunge.toFixed(0) + 'mm';
+  } else {
+    maxPlunge = Math.min(customPlunge, allowedMax);
+    depthSummary = 'Surface search depth: Custom — ' + customPlunge.toFixed(0) + 'mm' +
+      (customPlunge > allowedMax ? ' (clamped to ' + maxPlunge.toFixed(0) + 'mm)' : '');
+  }
+
+  return {
+    probeFeed: probeFeed,
+    maxPlunge: maxPlunge,
+    depthSummary: depthSummary
+  };
+}
+
 // Load saved reference position from localStorage on startup
 (function _toolChangeLoadSaved() {
   try {
@@ -147,11 +183,14 @@ async function toolChangeReturnAndReZero() {
   }
 
   var statusEl = document.getElementById('tool-change-status');
+  var cfg = getSettingsFromUI();
+  var probeSettings = _toolChangeResolveSurfaceSearchDepth(cfg);
 
   var confirmed = confirm(
     'This will:\n' +
     '1. Move to X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3) + '\n' +
-    '2. Probe down to find the surface\n' +
+    '2. Probe down to find the surface (max plunge ' + probeSettings.maxPlunge.toFixed(3) + 'mm)\n' +
+    '   ' + probeSettings.depthSummary + '\n' +
     '3. Set Z0 at that surface\n\n' +
     'Make sure:\n' +
     '✓ Touch probe removed, cutting bit installed\n' +
@@ -166,13 +205,19 @@ async function toolChangeReturnAndReZero() {
     // Preflight: abort if controller is in ALARM, machine is not homed, or probe is triggered
     await requireStartupHomingPreflight('tool change return & re-zero');
 
+    if (statusEl) {
+      statusEl.textContent = probeSettings.depthSummary;
+      statusEl.className = 'status-line';
+    }
+    setFooterStatus(probeSettings.depthSummary, 'ok');
+    pluginDebug('[tool-change] ' + probeSettings.depthSummary);
+
     setFooterStatus('Returning to reference position...', 'ok');
     if (statusEl) {
       statusEl.textContent = 'Moving to reference position...';
       statusEl.className = 'status-line';
     }
 
-    var cfg = getSettingsFromUI();
     var retractFeed = Math.max(100, cfg.travelFeedRate || 600);
     var machineSafeZ = isFinite(Number(cfg.machineSafeTopZ)) ? Number(cfg.machineSafeTopZ) : null;
 
@@ -206,12 +251,10 @@ async function toolChangeReturnAndReZero() {
     }
     setFooterStatus('Probing surface to establish Z0...', 'ok');
 
-    // Step 3: Probe down to find surface
-    // Use existing settings fields (probeFeed / topProbeDepth) — surfaceProbeFeedRate and
-    // surfaceProbeMaxPlunge are not registered in getSettingsFromUI() and would always
-    // evaluate to their fallback defaults.
-    var probeFeed = cfg.probeFeed || 100;
-    var maxPlunge = cfg.topProbeDepth || 20;
+    // Step 3: Probe down to find surface using the same Outline tab surface
+    // search-depth mode users configure for the dedicated surface reference probe.
+    var probeFeed = probeSettings.probeFeed;
+    var maxPlunge = probeSettings.maxPlunge;
 
     // Ensure probe is not triggered before plunge
     var preSnap = await getMachineSnapshot();

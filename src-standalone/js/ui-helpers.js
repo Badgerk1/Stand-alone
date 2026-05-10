@@ -407,6 +407,33 @@ function updateMeshTable_sm() {
 
 function applyLogSurface(msg) {
   var el = document.getElementById('apply-surface-log');
+  if (el) {
+    el.style.display = 'block';
+    var ts = tsMs();
+    var line = document.createElement('div');
+    line.textContent = '[' + ts + '] ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+  applyLog('[SURFACE] ' + msg);
+}
+
+function applyLogFace(msg) {
+  var el = document.getElementById('apply-face-log');
+  if (el) {
+    el.style.display = 'block';
+    var ts = tsMs();
+    var line = document.createElement('div');
+    line.textContent = '[' + ts + '] ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+  applyLog('[FACE] ' + msg);
+}
+
+// Append to the unified Apply tab log
+function applyLog(msg) {
+  var el = document.getElementById('apply-unified-log');
   if (!el) return;
   el.style.display = 'block';
   var ts = tsMs();
@@ -416,15 +443,24 @@ function applyLogSurface(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-function applyLogFace(msg) {
-  var el = document.getElementById('apply-face-log');
-  if (!el) return;
-  el.style.display = 'block';
-  var ts = tsMs();
-  var line = document.createElement('div');
-  line.textContent = '[' + ts + '] ' + msg;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
+// Download unified log as text file
+function applyDownloadLog() {
+  var el = document.getElementById('apply-unified-log');
+  if (!el || !el.textContent.trim()) { alert('Apply log is empty.'); return; }
+  var text = Array.from(el.querySelectorAll('div')).map(function(d) { return d.textContent; }).join('\n');
+  var blob = new Blob([text], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'apply-log-' + Date.now() + '.txt';
+  a.click();
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
+}
+
+// Clear unified log
+function applyClearLog() {
+  var el = document.getElementById('apply-unified-log');
+  if (el) { el.innerHTML = ''; el.style.display = 'none'; }
 }
 
 function applyUpdateButtons() {
@@ -464,16 +500,26 @@ function applyDownloadCompensatedGcode(type) {
   var gcode = (type === 'face') ? applyFaceCompGcode : applySurfaceCompGcode;
   if (!gcode) { alert('No compensated G-code. Apply compensation first.'); return; }
   var blob = new Blob([gcode], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = 'compensated_' + type + '_' + Date.now() + '.nc';
   a.click();
+  applyLog('Downloaded compensated ' + type + ' G-code');
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
 }
 
 async function applySendToNcSender(type) {
   var gcode = (type === 'face') ? applyFaceCompGcode : applySurfaceCompGcode;
   if (!gcode) { alert('No compensated G-code. Apply compensation first.'); return; }
-  await sendCompToNcSender(gcode, 'compensated_' + type);
+  applyLog('Sending ' + type + ' G-code to ncSender...');
+  try {
+    await sendCompToNcSender(gcode, 'compensated_' + type);
+    applyLog('Send to ncSender finished for ' + type + ' G-code.');
+  } catch (e) {
+    applyLog('ERROR sending ' + type + ' G-code to ncSender: ' + e.message);
+    throw e;
+  }
 }
 
 function updateFaceMeshDataUI() {
