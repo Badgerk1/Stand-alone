@@ -291,9 +291,11 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('PROBE: switching to G91 (relative) mode');
     smLogProbe('OUTLINE: PROBE: switching to G91 (relative) mode');
     await sendCommand('G91');
-    await sleep(20);
-    // Modal command (G91) — short delay ensures controller has processed mode change
+    await sleep(50);
+    // CRITICAL: Wait for idle after G91 to ensure mode change is complete before G38.2
+    await waitForIdleWithTimeout(5000);
     // Log a controller snapshot just before issuing G38.2 — aids alarm diagnosis.
+    snap = await getMachineSnapshot();
     outlineAppendLog('DEBUG SNAP: status=' + snap.status +
       ' Pn=' + (snap.raw && snap.raw.Pn ? snap.raw.Pn : 'none') +
       ' probe=' + (snap.probeTriggered ? 'triggered' : 'open') +
