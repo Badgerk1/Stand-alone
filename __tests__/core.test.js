@@ -105,7 +105,7 @@ describe('Core Module', () => {
   });
 
   describe('Position Parsing', () => {
-    test('should support object-style xyz parsing in _parsePos', () => {
+    test('should support object-style x, y, z parsing in _parsePos', () => {
       const parsePosSource = extractFunctionSource(coreJs, '_parsePos', false);
       const parsePos = new Function(`return (${parsePosSource});`)();
       expect(parsePos({ x: 1.5, y: '2.0', z: 3 })).toEqual({ x: 1.5, y: 2, z: 3 });

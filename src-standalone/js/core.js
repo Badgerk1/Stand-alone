@@ -1152,8 +1152,8 @@ async function checkHomedStatus(){
 function _parsePos(str){
   if(str && typeof str === 'object' && !Array.isArray(str)){
     if(str.x != null && str.y != null && str.z != null){
-      var ox = parseFloat(str.x), oy = parseFloat(str.y), oz = parseFloat(str.z);
-      if(!isNaN(ox) && !isNaN(oy) && !isNaN(oz)) return {x:ox, y:oy, z:oz};
+      var xVal = parseFloat(str.x), yVal = parseFloat(str.y), zVal = parseFloat(str.z);
+      if(!isNaN(xVal) && !isNaN(yVal) && !isNaN(zVal)) return {x:xVal, y:yVal, z:zVal};
     }
   }
   if(!str || typeof str !== 'string') return null;
@@ -1174,12 +1174,12 @@ async function getWorkPosition(){
   var wp = _parsePos(ms.workPosition || ms.position || ms.pos || null);
   if(wp) return {x:wp.x, y:wp.y, z:wp.z, status: status, probeTriggered: probeTriggered};
   if(ms.x != null && ms.y != null && ms.z != null){
-    var dx = parseFloat(ms.x), dy = parseFloat(ms.y), dz = parseFloat(ms.z);
-    if(!isNaN(dx) && !isNaN(dy) && !isNaN(dz)) return {x:dx, y:dy, z:dz, status: status, probeTriggered: probeTriggered};
+    var xVal = parseFloat(ms.x), yVal = parseFloat(ms.y), zVal = parseFloat(ms.z);
+    if(!isNaN(xVal) && !isNaN(yVal) && !isNaN(zVal)) return {x:xVal, y:yVal, z:zVal, status: status, probeTriggered: probeTriggered};
   }
   var rootW = _parsePos(state.wpos || state.WPos || state.workPos || null);
   if(rootW) return {x:rootW.x, y:rootW.y, z:rootW.z, status: status, probeTriggered: probeTriggered};
-  pluginDebug('getWorkPosition FAIL: Expected WPos or MPos/WCO or workPosition/position/pos/x,y,z or root wpos/WPos/workPos; ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
+  pluginDebug('getWorkPosition FAIL: attempted fields=WPos,MPos+WCO,MPos,workPosition/position/pos,x/y/z,state.wpos/WPos/workPos; available ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
   throw new Error('Could not read current position from Sender');
 }
 
