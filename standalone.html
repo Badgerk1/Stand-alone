@@ -9141,21 +9141,55 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
   var currentPos = await getWorkPosition();
   var requestedClearanceZ = currentPos.z + Math.max(5, clearanceZ);
 
-  // CRITICAL: Check if we're at or near machine ceiling to avoid ALARM:2 soft limit.
-  // When at machine Z=0 (ceiling), attempting to lift Z higher will trigger soft limit alarm.
+  // CRITICAL: Prevent ALARM:2 soft limit errors by detecting when Z lift would exceed machine ceiling.
+  // Three scenarios where lifting Z is unsafe:
+  // 1. Machine coords available & at ceiling (machineZ ≈ 0)
+  // 2. Machine coords available & requested Z would exceed ceiling (machineZ + lift > 0)
+  // 3. Machine coords unavailable & work Z near/above 0 with positive lift requested
   var snap = await getMachineSnapshot();
-  var atMachineCeiling = (snap.machineZ != null && snap.machineZ >= -0.5 && snap.machineZ <= 0.5);
+  var skipLift = false;
+  var skipReason = '';
+
+  if (snap.machineZ != null) {
+    // Machine coordinates available - use them for precise ceiling detection
+    var atMachineCeiling = (snap.machineZ >= -0.5 && snap.machineZ <= 0.5);
+    if (atMachineCeiling) {
+      skipLift = true;
+      skipReason = 'already at machine ceiling (machineZ=' + snap.machineZ.toFixed(3) + ')';
+    } else {
+      // Check if requested lift would exceed ceiling (machine Z=0)
+      var liftAmount = requestedClearanceZ - currentPos.z;
+      var projectedMachineZ = snap.machineZ + liftAmount;
+      if (projectedMachineZ > -0.5) {
+        skipLift = true;
+        skipReason = 'lift would exceed ceiling (current machineZ=' + snap.machineZ.toFixed(3) +
+          ', lift=' + liftAmount.toFixed(3) + ' would reach ' + projectedMachineZ.toFixed(3) + ')';
+      }
+    }
+  } else {
+    // Machine coordinates not available - use work coordinates as fallback
+    // If work Z is at/near 0 and we're trying to lift to positive Z, likely at ceiling
+    if (currentPos.z >= -1 && currentPos.z <= 1 && requestedClearanceZ > 1) {
+      skipLift = true;
+      skipReason = 'work Z near zero (' + currentPos.z.toFixed(3) +
+        ') and lift target is positive (' + requestedClearanceZ.toFixed(3) +
+        '), likely at ceiling (machineZ unavailable)';
+    }
+  }
 
   var targetClearanceZ;
-  if (atMachineCeiling) {
-    // Already at ceiling — skip Z lift entirely, proceed with lateral move at current Z.
-    // This is safe because runOutlineSurfaceProbe() retracts to machine Z=0 before calling us.
+  if (skipLift) {
+    // Skip Z lift to avoid soft limit alarm - proceed with lateral move at current Z
     targetClearanceZ = currentPos.z;
-    smLogProbe('TRAVEL: at machine ceiling (machineZ=' + snap.machineZ.toFixed(3) + '), skipping Z lift, moving laterally at current Z=' + currentPos.z.toFixed(3) + ' to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
-    pluginDebug('smSafeLateralMove: at ceiling, skipping lift');
+    smLogProbe('TRAVEL: skipping Z lift (' + skipReason + '), moving laterally at current Z=' +
+      currentPos.z.toFixed(3) + ' to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+    pluginDebug('smSafeLateralMove: skip lift - ' + skipReason);
   } else {
     targetClearanceZ = requestedClearanceZ;
-    smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+    smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) +
+      ' (current=' + currentPos.z.toFixed(3) + ', machineZ=' +
+      (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
+      '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
   }
 
   // Move a single axis to target using one full-distance G38.3 command.
@@ -9212,8 +9246,8 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
   // Lift Z to absolute clearance height before lateral travel.
   // Using absolute positioning (G90) prevents accumulated Z drift that would cause
   // soft limit alarms (ALARM:4) after multiple probe points.
-  // Skip lift if already at machine ceiling to prevent ALARM:2.
-  if (!atMachineCeiling && targetClearanceZ !== currentPos.z) {
+  // Skip lift if it would exceed machine ceiling to prevent ALARM:2.
+  if (!skipLift && targetClearanceZ !== currentPos.z) {
     var liftCmd = 'G90 G1 Z' + targetClearanceZ.toFixed(3) + ' F' + travelFeed;
     smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: sending command: ' + liftCmd);
     pluginDebug('smSafeLateralMove: Z-lift cmd: ' + liftCmd);
