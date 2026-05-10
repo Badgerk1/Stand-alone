@@ -1,7 +1,7 @@
 # Stand-alone 3D Live Edge Probe - Architecture Documentation
 
-**Version:** V21.0
-**Last Updated:** 2026-05-03
+**Version:** Beta V1
+**Last Updated:** 2026-05-10
 
 ---
 
