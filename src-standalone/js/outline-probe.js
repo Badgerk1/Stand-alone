@@ -274,7 +274,18 @@ async function runOutlineSurfaceProbe() {
         '), workZ=' + pos.z.toFixed(3) + ' — using surfRefMaxPlunge=' + fullPlunge.toFixed(3));
     } else {
       // Normal case: work coordinates set up, use work Z + buffer or surfRefMaxPlunge, whichever is larger.
+      // IMPORTANT: also clamp to machineZTravel-5 so a large surfRefMaxPlunge value cannot drive
+      // the probe past the machine's soft limit — the machine retracted to machine Z=0 in step 1,
+      // so the maximum safe downward travel from here is machineZTravel-5 mm.
+      var allowedMaxNormal = Math.max(10, cfg.machineZTravel - 5);
       fullPlunge = Math.max(Math.abs(pos.z) + 5, cfg.surfRefMaxPlunge);
+      if (fullPlunge > allowedMaxNormal) {
+        var clampMsgNormal = 'PROBE: clamping plunge from ' + fullPlunge.toFixed(3) + ' mm to ' + allowedMaxNormal.toFixed(3) +
+          ' mm (machineZTravel=' + cfg.machineZTravel.toFixed(0) + ' mm, margin=5 mm) to prevent soft-limit alarm';
+        outlineAppendLog(clampMsgNormal);
+        smLogProbe('OUTLINE: ' + clampMsgNormal);
+        fullPlunge = allowedMaxNormal;
+      }
       outlineAppendLog('PROBE: full Z plunge from workZ=' + pos.z.toFixed(3) +
         ' machineZ=' + (snap.machineZ != null ? snap.machineZ.toFixed(3) : 'unknown') +
         ' distance=' + fullPlunge.toFixed(3));
