@@ -1179,7 +1179,7 @@ async function getWorkPosition(){
   }
   var rootW = _parsePos(state.wpos || state.WPos || state.workPos || null);
   if(rootW) return {x:rootW.x, y:rootW.y, z:rootW.z, status: status, probeTriggered: probeTriggered};
-  pluginDebug('getWorkPosition FAIL: Expected WPos or MPos/WCO or workPosition/position/pos/x,y,z; ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
+  pluginDebug('getWorkPosition FAIL: Expected WPos or MPos/WCO or workPosition/position/pos/x,y,z or root wpos/WPos/workPos; ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
   throw new Error('Could not read current position from Sender');
 }
 

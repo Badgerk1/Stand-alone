@@ -13,6 +13,24 @@ const coreJs = fs.readFileSync(
   'utf8'
 );
 
+function extractFunctionSource(source, fnName, isAsync) {
+  const signature = `${isAsync ? 'async ' : ''}function ${fnName}(`;
+  const start = source.indexOf(signature);
+  if (start < 0) throw new Error(`Function not found: ${fnName}`);
+  const bodyStart = source.indexOf('{', start);
+  if (bodyStart < 0) throw new Error(`Function body not found: ${fnName}`);
+  let depth = 0;
+  for (let i = bodyStart; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === '{') depth += 1;
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error(`Function end not found: ${fnName}`);
+}
+
 describe('Core Module', () => {
   beforeEach(() => {
     // Clear any global state
@@ -88,8 +106,11 @@ describe('Core Module', () => {
 
   describe('Position Parsing', () => {
     test('should support object-style xyz parsing in _parsePos', () => {
-      expect(coreJs).toMatch(/typeof str === 'object' && !Array\.isArray\(str\)/);
-      expect(coreJs).toMatch(/parseFloat\(str\.x\), oy = parseFloat\(str\.y\), oz = parseFloat\(str\.z\)/);
+      const parsePosSource = extractFunctionSource(coreJs, '_parsePos', false);
+      const parsePos = new Function(`return (${parsePosSource});`)();
+      expect(parsePos({ x: 1.5, y: '2.0', z: 3 })).toEqual({ x: 1.5, y: 2, z: 3 });
+      expect(parsePos({ x: 1.5, y: 2 })).toBeNull();
+      expect(parsePos('10.000,20.000,30.000')).toEqual({ x: 10, y: 20, z: 30 });
     });
 
     test('should parse WPos coordinates correctly', () => {
@@ -156,9 +177,23 @@ describe('Core Module', () => {
     });
 
     test('should include alternate getWorkPosition fallbacks and diagnostics', () => {
-      expect(coreJs).toContain('ms.workPosition || ms.position || ms.pos || null');
-      expect(coreJs).toContain('state.wpos || state.WPos || state.workPos || null');
-      expect(coreJs).toContain("pluginDebug('getWorkPosition FAIL:");
+      const parsePosSource = extractFunctionSource(coreJs, '_parsePos', false);
+      const getWorkPositionSource = extractFunctionSource(coreJs, 'getWorkPosition', true);
+      const parsePos = new Function(`return (${parsePosSource});`)();
+      const getWorkPositionFactory = new Function(
+        '_getState',
+        '_machineStateFrom',
+        '_parsePos',
+        'pluginDebug',
+        `return (${getWorkPositionSource});`
+      );
+      const getWorkPosition = getWorkPositionFactory(
+        async () => ({ machineState: { status: 'Idle', workPosition: { x: '5', y: 6, z: 7 } } }),
+        (state) => state.machineState || {},
+        parsePos,
+        () => {}
+      );
+      return expect(getWorkPosition()).resolves.toMatchObject({ x: 5, y: 6, z: 7, status: 'Idle' });
     });
 
     test('should tolerate alternate machine position fields in getMachineSnapshot', () => {
