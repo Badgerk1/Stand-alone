@@ -291,7 +291,8 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('PROBE: switching to G91 (relative) mode');
     smLogProbe('OUTLINE: PROBE: switching to G91 (relative) mode');
     await sendCommand('G91');
-    // Modal command (G91) doesn't require waitForIdle - controller processes it instantly
+    await sleep(20);
+    // Modal command (G91) — short delay ensures controller has processed mode change
     // Log a controller snapshot just before issuing G38.2 — aids alarm diagnosis.
     outlineAppendLog('DEBUG SNAP: status=' + snap.status +
       ' Pn=' + (snap.raw && snap.raw.Pn ? snap.raw.Pn : 'none') +
@@ -319,7 +320,8 @@ async function runOutlineSurfaceProbe() {
     outlineAppendLog('PROBE: restoring G90 (absolute) mode');
     smLogProbe('OUTLINE: PROBE: restoring G90 (absolute) mode');
     await sendCommand('G90');
-    // Modal command (G90) doesn't require waitForIdle - controller processes it instantly
+    await sleep(20);
+    // Modal command (G90) — short delay ensures controller has processed mode change
 
     var endPos = await getWorkPosition();
     var pinTriggered = await smGetProbeTriggered();
