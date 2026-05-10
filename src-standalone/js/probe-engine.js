@@ -113,9 +113,6 @@ function smSaveReplayHtml() {
   var meshJson = safeJson(smMeshData);
 
   // ── Probe spindle graphic (inline SVG; no external file dependency) ─────────
-  // In-house design inspired by ncSender probe visual style.
-  // ncSender © 2024 siganberg, GPL-3.0/Commercial dual license.
-  // This asset is independently designed and not copied from ncSender source.
   var probeImg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 138" class="sm-probe-img" aria-label="Probe spindle">'
     + '<defs>'
     + '<linearGradient id="probeBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">'
