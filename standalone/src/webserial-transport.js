@@ -53,23 +53,23 @@ var _wsProbeTriggered = false; // true when most recent [PRB:…:1] not yet cons
     '</button>' +
     '<span id="ws-status" style="font-size:12px;color:var(--muted);white-space:nowrap">&#9675; Not connected</span>';
 
-  // ── Apply tab — adapt buttons for standalone (no ncSender) ──────────────
-  // Rename "Load from ncSender" to clarify it is not available here.
-  var btnLoadNc = document.getElementById('apply-btn-load-ncsender');
+  // ── Apply tab — adapt buttons for standalone (no Sender) ──────────────
+  // Rename "Load from Sender" to clarify it is not available here.
+  var btnLoadNc = document.getElementById('apply-btn-load-sender');
   if (btnLoadNc) {
     btnLoadNc.textContent = '\u26a0\ufe0f Not available (standalone)';
-    btnLoadNc.title = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    btnLoadNc.title = 'Sender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
     btnLoadNc.classList.remove('btn');
     btnLoadNc.classList.add('btn', 'ghost');
   }
 
-  // Rename "Send to ncSender" buttons to "Send to Machine".
-  var btnSendSurface = document.getElementById('apply-btn-send-ncsender-surface');
+  // Rename "Send to Sender" buttons to "Send to Machine".
+  var btnSendSurface = document.getElementById('apply-btn-send-sender-surface');
   if (btnSendSurface) {
     btnSendSurface.innerHTML = '&#9654; Send to Machine';
     btnSendSurface.title = 'Stream the compensated G-code line-by-line to the controller over serial.';
   }
-  var btnSendFace = document.getElementById('apply-btn-send-ncsender-face');
+  var btnSendFace = document.getElementById('apply-btn-send-sender-face');
   if (btnSendFace) {
     btnSendFace.innerHTML = '&#9654; Send to Machine';
     btnSendFace.title = 'Stream the compensated G-code line-by-line to the controller over serial.';
@@ -408,21 +408,21 @@ async function requireStartupHomingPreflight(runLabel) {
 // ── G-code streaming state ────────────────────────────────────────────────────
 var _wsStreamRunning = false;
 
-// ── Override: applyLoadGcodeFromNcSender ──────────────────────────────────────
-// In standalone mode there is no ncSender — direct the user to "Load from File".
-async function applyLoadGcodeFromNcSender() {
+// ── Override: applyLoadGcodeFromSender ──────────────────────────────────────
+// In standalone mode there is no Sender — direct the user to "Load from File".
+async function applyLoadGcodeFromSender() {
   var statusEl = document.getElementById('apply-gcode-status');
   if (statusEl) {
-    statusEl.textContent = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    statusEl.textContent = 'Sender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
     statusEl.className = 'status-line warn';
   }
   setFooterStatus('Standalone mode: use \u201cLoad from File\u201d to load G-code.', 'warn');
 }
 
-// ── Override: sendCompToNcSender ──────────────────────────────────────────────
+// ── Override: sendCompToSender ──────────────────────────────────────────────
 // In standalone mode this streams the compensated G-code line-by-line to the
-// controller over serial instead of pushing it to ncSender.
-async function sendCompToNcSender(gcodeText, label) {
+// controller over serial instead of pushing it to Sender.
+async function sendCompToSender(gcodeText, label) {
   if (!gcodeText) { alert('No compensated G-code. Apply compensation first.'); return; }
   if (!_wsConnected) { alert('Not connected. Click \u201cConnect Serial\u201d and select a port first.'); return; }
   if (_wsStreamRunning) { alert('A G-code stream is already running. Stop it first.'); return; }

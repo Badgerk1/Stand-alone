@@ -826,12 +826,12 @@ function smDownloadCompensatedGcode() {
   a.click();
 }
 
-async function sendCompToNcSender(gcodeText, label) {
+async function sendCompToSender(gcodeText, label) {
   if (!gcodeText) { alert('No compensated G-code available. Apply compensation first.'); return; }
   var filename = (label || 'compensated') + '_' + Date.now() + '.nc';
   var loaded = false;
 
-  // Try loading temp content directly — ncSender /api/gcode-files/load-temp
+  // Try loading temp content directly — Sender /api/gcode-files/load-temp
   // This loads G-code from string content into the workspace without saving a file
   try {
     var r = await fetch('/api/gcode-files/load-temp', {
@@ -845,7 +845,7 @@ async function sendCompToNcSender(gcodeText, label) {
     }
   } catch(e) { /* fall through to file upload attempt */ }
 
-  // Fallback: upload as a file — ncSender /api/gcode-files (uploads and immediately loads)
+  // Fallback: upload as a file — Sender /api/gcode-files (uploads and immediately loads)
   if (!loaded) {
     try {
       var blob = new Blob([gcodeText], { type: 'text/plain' });
@@ -860,7 +860,7 @@ async function sendCompToNcSender(gcodeText, label) {
   }
 
   if (loaded) {
-    alert((label || 'Compensated G-code') + ' loaded into ncSender successfully.\n\nThe file "' + filename + '" is now active and ready to run.');
+    alert((label || 'Compensated G-code') + ' loaded into Sender successfully.\n\nThe file "' + filename + '" is now active and ready to run.');
   } else {
     // Neither API endpoint worked — download the file and instruct the user
     try {
@@ -874,10 +874,10 @@ async function sendCompToNcSender(gcodeText, label) {
       document.body.removeChild(a);
       URL.revokeObjectURL(dlUrl);
     } catch(dlErr) { /* ignore download errors */ }
-    alert('Could not load directly into ncSender.\n\n' +
+    alert('Could not load directly into Sender.\n\n' +
       'The file "' + filename + '" has been downloaded.\n\n' +
-      'To load it in ncSender:\n' +
-      '1. Open the G-code file list in ncSender\n' +
+      'To load it in Sender:\n' +
+      '1. Open the G-code file list in Sender\n' +
       '2. Upload or select "' + filename + '"\n' +
       '3. Press Run to execute');
   }
@@ -888,11 +888,11 @@ async function sendCompToNcSender(gcodeText, label) {
 var applyOriginalGcode = null;       // loaded G-code text for Apply tab
 var applySurfaceCompGcode = null;    // compensated surface G-code
 var applyFaceCompGcode = null;       // compensated face G-code
-var PLUGIN_ID = 'com.ncsender.edgeprobe.combined';
+var PLUGIN_ID = 'com.sender.edgeprobe.combined';
 
-async function applyLoadGcodeFromNcSender() {
+async function applyLoadGcodeFromSender() {
   var statusEl = document.getElementById('apply-gcode-status');
-  applyLog('Loading G-code from ncSender...');
+  applyLog('Loading G-code from Sender...');
   try {
     // Try /api/gcode-files/current to get loaded G-code content
     var r = await fetch('/api/gcode-files/current');
@@ -902,10 +902,10 @@ async function applyLoadGcodeFromNcSender() {
         applyOriginalGcode = data.content;
         var lines = applyOriginalGcode.split('\n').length;
         if (statusEl) {
-          statusEl.textContent = 'Loaded from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : '');
+          statusEl.textContent = 'Loaded from Sender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : '');
           statusEl.className = 'status-line good';
         }
-        applyLog('Loaded G-code from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : ''));
+        applyLog('Loaded G-code from Sender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : ''));
         applyUpdateButtons();
         return;
       }
@@ -925,17 +925,17 @@ async function applyLoadGcodeFromNcSender() {
             statusEl.textContent = 'Loaded: ' + filename + ' (' + lines + ' lines)';
             statusEl.className = 'status-line good';
           }
-          applyLog('Loaded G-code from ncSender cache: ' + filename + ' (' + lines + ' lines)');
+          applyLog('Loaded G-code from Sender cache: ' + filename + ' (' + lines + ' lines)');
           applyUpdateButtons();
           return;
         }
       }
     }
-    if (statusEl) { statusEl.textContent = 'No G-code loaded in ncSender. Load a file first.'; statusEl.className = 'status-line warn'; }
-    applyLog('ERROR: No G-code loaded in ncSender.');
+    if (statusEl) { statusEl.textContent = 'No G-code loaded in Sender. Load a file first.'; statusEl.className = 'status-line warn'; }
+    applyLog('ERROR: No G-code loaded in Sender.');
   } catch(e) {
-    if (statusEl) { statusEl.textContent = 'Error loading from ncSender: ' + e.message; statusEl.className = 'status-line bad'; }
-    applyLog('ERROR loading G-code from ncSender: ' + e.message);
+    if (statusEl) { statusEl.textContent = 'Error loading from Sender: ' + e.message; statusEl.className = 'status-line bad'; }
+    applyLog('ERROR loading G-code from Sender: ' + e.message);
   }
 }
 
@@ -1480,7 +1480,7 @@ function faceApplyCompensationCore(gcodeText, contactPoints, referenceContact, o
   output.push('; Compensation axis: ' + faceAxis + ' adjusted based on face contour at each (sampleCoord, Z) position');
   output.push('; View orientation: ' + viewOrientation);
   output.push('; Subdivision: enabled (segment length=' + segmentLength.toFixed(2) + ')');
-  output.push('; NOTE: ncSender shows XY plane (top-down). Use the plugin toolpath preview to verify face contour.');
+  output.push('; NOTE: Sender shows XY plane (top-down). Use the plugin toolpath preview to verify face contour.');
   output.push('');
 
   for (var i = 0; i < lines.length; i++) {

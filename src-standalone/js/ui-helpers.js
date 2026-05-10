@@ -477,13 +477,13 @@ function applyUpdateButtons() {
   var dlSurface = document.getElementById('apply-btn-download-surface');
   if (dlSurface) dlSurface.disabled = !applySurfaceCompGcode;
 
-  var sendSurface = document.getElementById('apply-btn-send-ncsender-surface');
+  var sendSurface = document.getElementById('apply-btn-send-sender-surface');
   if (sendSurface) sendSurface.disabled = !applySurfaceCompGcode;
 
   var dlFace = document.getElementById('apply-btn-download-face');
   if (dlFace) dlFace.disabled = !applyFaceCompGcode;
 
-  var sendFace = document.getElementById('apply-btn-send-ncsender-face');
+  var sendFace = document.getElementById('apply-btn-send-sender-face');
   if (sendFace) sendFace.disabled = !applyFaceCompGcode;
 }
 
@@ -509,15 +509,15 @@ function applyDownloadCompensatedGcode(type) {
   setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
 }
 
-async function applySendToNcSender(type) {
+async function applySendToSender(type) {
   var gcode = (type === 'face') ? applyFaceCompGcode : applySurfaceCompGcode;
   if (!gcode) { alert('No compensated G-code. Apply compensation first.'); return; }
-  applyLog('Sending ' + type + ' G-code to ncSender...');
+  applyLog('Sending ' + type + ' G-code to Sender...');
   try {
-    await sendCompToNcSender(gcode, 'compensated_' + type);
-    applyLog('Send to ncSender finished for ' + type + ' G-code.');
+    await sendCompToSender(gcode, 'compensated_' + type);
+    applyLog('Send to Sender finished for ' + type + ' G-code.');
   } catch (e) {
-    applyLog('ERROR sending ' + type + ' G-code to ncSender: ' + e.message);
+    applyLog('ERROR sending ' + type + ' G-code to Sender: ' + e.message);
     throw e;
   }
 }
