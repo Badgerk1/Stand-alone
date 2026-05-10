@@ -732,7 +732,7 @@ function applySurfaceCompensation() {
     var preview = smCompensatedGcode.split('\n').slice(0, 30).join('\n');
     var previewEl = document.getElementById('sm-apply-preview');
     if (previewEl) previewEl.textContent = preview;
-    var ncBtn2d = document.getElementById('sm-btn-send-ncsender');
+    var ncBtn2d = document.getElementById('sm-btn-send-sender');
     if(ncBtn2d) ncBtn2d.disabled = false;
   } catch(e) {
     var errEl = document.getElementById('sm-applyStatus');

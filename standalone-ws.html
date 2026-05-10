@@ -2223,8 +2223,8 @@ function clearAllVisuals() {
 /**
  * _trySafeStopEndpoints(label)
  *
- * Tries ncSender-compatible safe-stop endpoints in best-practice order:
- *   1. POST /api/gcode-job/stop  — ncSender job stop (clears queue, no resume)
+ * Tries Sender-compatible safe-stop endpoints in best-practice order:
+ *   1. POST /api/gcode-job/stop  — Sender job stop (clears queue, no resume)
  *   2. POST /api/probe/stop      — probe-op stop (safe no-op if 404)
  *   3. POST /api/gcode/stop      — legacy / backward-compat fallback
  *
@@ -2789,7 +2789,7 @@ async function sendResumeCommand() {
 
 /**
  * sendClearHoldCommand()
- * Calls the ncSender-compatible safe-stop endpoints to cancel queued motion and
+ * Calls the Sender-compatible safe-stop endpoints to cancel queued motion and
  * clear Hold without resuming buffered moves.  Called by the "Clear Hold (Stop)"
  * button in the Hold Warning panel.
  */
@@ -5669,7 +5669,7 @@ function applySurfaceCompensation() {
     var preview = smCompensatedGcode.split('\n').slice(0, 30).join('\n');
     var previewEl = document.getElementById('sm-apply-preview');
     if (previewEl) previewEl.textContent = preview;
-    var ncBtn2d = document.getElementById('sm-btn-send-ncsender');
+    var ncBtn2d = document.getElementById('sm-btn-send-sender');
     if(ncBtn2d) ncBtn2d.disabled = false;
   } catch(e) {
     var errEl = document.getElementById('sm-applyStatus');

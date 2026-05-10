@@ -113,8 +113,8 @@ function clearAllVisuals() {
 /**
  * _trySafeStopEndpoints(label)
  *
- * Tries ncSender-compatible safe-stop endpoints in best-practice order:
- *   1. POST /api/gcode-job/stop  — ncSender job stop (clears queue, no resume)
+ * Tries Sender-compatible safe-stop endpoints in best-practice order:
+ *   1. POST /api/gcode-job/stop  — Sender job stop (clears queue, no resume)
  *   2. POST /api/probe/stop      — probe-op stop (safe no-op if 404)
  *   3. POST /api/gcode/stop      — legacy / backward-compat fallback
  *
@@ -679,7 +679,7 @@ async function sendResumeCommand() {
 
 /**
  * sendClearHoldCommand()
- * Calls the ncSender-compatible safe-stop endpoints to cancel queued motion and
+ * Calls the Sender-compatible safe-stop endpoints to cancel queued motion and
  * clear Hold without resuming buffered moves.  Called by the "Clear Hold (Stop)"
  * button in the Hold Warning panel.
  */
