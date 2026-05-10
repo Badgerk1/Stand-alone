@@ -1,7 +1,7 @@
 # PR Fixes and Tested Solutions - Stand-alone 3D Live Edge Probe
 
 **Repository:** Badgerk1/Stand-alone
-**Documentation Date:** 2026-05-03
+**Documentation Date:** 2026-05-10
 
 This document tracks all Pull Requests, the issues they addressed, solutions implemented, and testing results. This serves as a reference for AI assistants working on the codebase to understand what has been tried, what worked, and what patterns to follow.
 
@@ -9,11 +9,247 @@ This document tracks all Pull Requests, the issues they addressed, solutions imp
 
 ## Table of Contents
 
-1. [PR #23: Fix ALARM:4 Soft Limit Violation](#pr-23-fix-alarm4-soft-limit-violation)
-2. [PR #22: Fast-Polling Mode for Probe Trigger Response](#pr-22-fast-polling-mode-for-probe-trigger-response)
-3. [General Patterns and Best Practices](#general-patterns-and-best-practices)
-4. [Known Working Solutions](#known-working-solutions)
-5. [Things That Did NOT Work](#things-that-did-not-work)
+1. [PR #37: Return to X/Y Zero After Tool Change Z Re-Zero](#pr-37-return-to-xy-zero-after-tool-change-z-re-zero)
+2. [PR #36: Fix Probe Retraction and Contact Detection](#pr-36-fix-probe-retraction-and-contact-detection)
+3. [PR #23: Fix ALARM:4 Soft Limit Violation](#pr-23-fix-alarm4-soft-limit-violation)
+4. [PR #22: Fast-Polling Mode for Probe Trigger Response](#pr-22-fast-polling-mode-for-probe-trigger-response)
+5. [General Patterns and Best Practices](#general-patterns-and-best-practices)
+6. [Known Working Solutions](#known-working-solutions)
+7. [Things That Did NOT Work](#things-that-did-not-work)
+
+---
+
+## PR #37: Return to X/Y Zero After Tool Change Z Re-Zero
+
+**Merged:** 2026-05-10
+**Branch:** `claude/fix-retract-z-home-issue`
+**Agent Session:** [View logs](https://github.com/Badgerk1/Stand-alone/sessions/ee1e3cca-9c36-45ad-8609-3f685f9fd207)
+
+### Problem
+
+After the "Return & Re-Zero Z" operation completed successfully, the machine was left at the reference position (e.g., X151.877 Y115.622) instead of returning to the work coordinate origin (X0 Y0). This required users to manually jog back to the origin before starting their cutting operations.
+
+**Symptoms:**
+- Tool change workflow completed Z re-zeroing correctly
+- Machine remained at arbitrary XY reference position
+- User had to manually move to X0 Y0 to begin work
+- Workflow felt incomplete and error-prone
+
+**User Feedback:**
+The log showed all steps completed successfully but the machine did not automatically return to the origin, requiring an extra manual step that could lead to errors if forgotten.
+
+### Solution
+
+Added **Step 7** to the `toolChangeReturnAndReZero()` function to automatically return to X0 Y0 (work coordinate origin) after raising Z to safe height.
+
+**Key Changes:**
+```javascript
+// NEW CODE - Step 7: Return to X/Y zero (work coordinate origin)
+applyLog('Returning to X0 Y0 (work coordinate origin)');
+await sendCommand('G90 G0 X0 Y0 F' + retractFeed.toFixed(0));
+await sleep(50);
+await _waitForIdleOrStop(15000);
+applyLog('Arrived at X0 Y0');
+```
+
+**Complete Workflow (7 Steps):**
+1. Raise Z to machine safe height (G53 machine coords)
+2. Move to XY reference position (where user saved probe position)
+3. Probe down to find surface (G38.2)
+4. Retract 2mm to clear probe pin
+5. Set Z0 at contact point (G10 L20 P0 Z2.0)
+6. Raise Z back to machine safe height (G53 machine coords)
+7. **Return to X0 Y0** ← NEW STEP
+
+**Files Modified:**
+- `src-standalone/js/tool-change-helper.js` (toolChangeReturnAndReZero function)
+
+### Testing
+
+**Test Conditions:**
+- Reference position: X151.877 Y115.622 Z-63.744
+- Surface probe depth: Auto mode (160mm effective)
+- Machine: GRBL 1.1 with soft limits enabled
+
+**Results:**
+- ✅ All 7 steps completed successfully
+- ✅ Z re-zeroed correctly at reference position
+- ✅ Machine returned to X0 Y0 after Z raised to safe height
+- ✅ Total operation time: ~26 seconds
+- ✅ Workflow now complete and ready for cutting operations
+- ✅ No manual positioning required
+
+**Log Verification:**
+```
+[09:51:44.860] === Return & Re-Zero Z Started ===
+[09:51:44.861] Reference Position: X151.877 Y115.622 Z-63.744
+[09:51:51.348] Moving to XY reference: X151.877 Y115.622
+[09:51:52.456] Arrived at XY reference position
+[09:52:01.951] PROBE: End Z position: -77.080, traveled: 77.080mm
+[09:52:01.960] PROBE RESULT: Contact detected by position (probe pin cleared)
+[09:52:02.282] Setting Z0 at contact point (G10 L20 P0 Z2.0)
+[09:52:09.835] Z raised to safe height
+[09:52:09.835] Returning to X0 Y0 (work coordinate origin)
+[09:52:10.999] Arrived at X0 Y0
+[09:52:11.000] Z0 successfully established at reference position!
+[09:52:11.000] === Return & Re-Zero Z Complete ===
+```
+
+### Lessons Learned
+
+1. **Complete workflows should leave machine in ready state** - Don't leave users at arbitrary positions
+2. **Return to origin is a natural expectation** - Most CNC operations start from X0 Y0 Z0
+3. **Use work coordinates for final positioning** - G90 X0 Y0 in active WCS, not machine coords
+4. **Log every step clearly** - Makes troubleshooting and verification easy
+5. **Test complete workflow end-to-end** - Ensure machine is ready for next operation
+
+### Related Code Patterns
+
+Functions that return to origin after completion:
+- ✅ `toolChangeReturnAndReZero()` - Returns to X0 Y0 after Z re-zero
+- ✅ `smFinishMotion()` - Optional return to X0 Y0 after probe (when enabled)
+
+Workflow completion patterns:
+- Always leave machine in a known, safe state
+- Return to work origin (X0 Y0) when appropriate
+- Raise Z to safe height before XY moves
+- Log completion status clearly
+
+---
+
+## PR #36: Fix Probe Retraction and Contact Detection
+
+**Merged:** 2026-05-10
+**Branch:** `claude/fix-retract-after-probe-trigger`
+**Status:** Initial implementation with test suite
+
+### Problem
+
+The "Return & Re-Zero Z" probe operation had two critical issues:
+
+1. **Probe validation logic error**: The code checked if probe was triggered AFTER retracting 2mm, but the probe pin would often clear during retraction, causing false negatives. This made the probe validation unreliable.
+
+2. **Inverted validation logic**: The original code threw an error if `!postSnap.probeTriggered` (probe NOT triggered), which was the opposite of the intended behavior. When probe did trigger correctly, the operation would fail with "Probe did not trigger" error.
+
+**Symptoms:**
+- Probe operation would fail even when contact was made successfully
+- Error: "Probe did not trigger. Check probe connection and surface height."
+- Probe pin state would clear during 2mm retraction
+- Unreliable detection based only on pin state after retraction
+
+**Root Cause:**
+```javascript
+// OLD CODE (BROKEN - checked AFTER retraction):
+await sendCommand('G0 Z2 F' + feed);  // Retract 2mm first
+await sendCommand('G90');
+
+// Then checked probe state (often cleared by now)
+var postSnap = await getMachineSnapshot();
+if (!postSnap.probeTriggered) {  // Inverted logic
+  throw new Error('Probe did not trigger...');
+}
+```
+
+### Solution
+
+Implemented **position-based contact detection** that validates probe contact by comparing start/end Z positions, with probe pin state as a fallback indicator.
+
+**Key Changes:**
+
+1. **Record starting position before probe:**
+```javascript
+var startPos = await getWorkPosition();
+var startZ = startPos.z;
+applyLog('PROBE: Starting Z position: ' + startZ.toFixed(3));
+```
+
+2. **Restore G90 immediately after probe completes:**
+```javascript
+await sendCommand('G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed.toFixed(0));
+await _waitForIdleOrStop(20000);
+await sendCommand('G90');  // Restore absolute mode BEFORE validation
+```
+
+3. **Validate contact using position delta:**
+```javascript
+var endPos = await getWorkPosition();
+var endZ = endPos.z;
+var distanceTraveled = startZ - endZ;
+
+var probeContactTolerance = 0.5; // mm
+var stoppedShort = distanceTraveled < (maxPlunge - probeContactTolerance);
+var postSnap = await getMachineSnapshot();
+var triggered = postSnap.probeTriggered;
+
+if (!triggered && !stoppedShort) {
+  // No contact detected
+  throw new Error('Probe did not trigger. Check probe connection and surface height.');
+}
+
+if (!triggered && stoppedShort) {
+  applyLog('PROBE RESULT: Contact detected by position (probe pin cleared)');
+} else {
+  applyLog('PROBE RESULT: Contact detected - triggered=' + triggered);
+}
+```
+
+4. **Retract AFTER validation:**
+```javascript
+// Step 4: Retract 2mm immediately after probe validation
+applyLog('RETRACT: Z +2mm to clear probe pin');
+await sendCommand('G91');
+await sendCommand('G0 Z2 F' + feed);
+await sendCommand('G90');
+```
+
+**Files Modified:**
+- `src-standalone/js/tool-change-helper.js` (toolChangeReturnAndReZero function)
+
+### Testing
+
+**Test Conditions:**
+- Reference position: X151.877 Y115.622 Z-63.744
+- Probe travel: 77.080mm downward
+- Max plunge: 160mm
+- Probe pin cleared during retraction (common scenario)
+
+**Results:**
+- ✅ Contact detected correctly by position delta (77.080mm < 160mm - 0.5mm)
+- ✅ Logged: "Contact detected by position (probe pin cleared)"
+- ✅ Validation passed even though probe pin cleared after contact
+- ✅ Z0 set correctly at contact point
+- ✅ Complete workflow succeeded
+
+**Position-Based Detection Benefits:**
+- Robust against probe pin bounce/clearing
+- Works with fast/slow probe feeds
+- Validates actual machine behavior (stopped short of maxPlunge)
+- Pin state serves as additional confirmation, not sole indicator
+
+### Lessons Learned
+
+1. **Position-based detection is more reliable than pin state** - Probe pins clear quickly
+2. **Validate contact BEFORE retraction** - Pin may clear during retraction
+3. **Use tolerance for "stopped short" detection** (0.5mm prevents false positives from floating-point)
+4. **Restore modal state (G90) before validation** - Allows retraction even if validation fails
+5. **Log both position and pin state** - Helps debug intermittent issues
+6. **Dual validation (position + pin)** - Position primary, pin as confirmation
+
+### Related Code Patterns
+
+Position-based probe detection used in:
+- ✅ `smPlungeProbe()` (probe-engine.js) - Position delta validation
+- ✅ `toolChangeReturnAndReZero()` (tool-change-helper.js) - Mirrors smPlungeProbe pattern
+- ✅ Outline probe contact detection - Position-based with threshold
+
+Probe validation best practices:
+- Check probe clear BEFORE plunge (smEnsureProbeClear)
+- Record starting position
+- Execute probe command (G38.2)
+- Restore G90 immediately after probe
+- Calculate distance traveled
+- Validate: stopped short OR pin triggered
+- THEN retract to clear pin
 
 ---
 
@@ -496,6 +732,7 @@ When implementing fixes or new features, test against these scenarios:
 
 | Version | Date       | Changes                                      |
 |---------|------------|----------------------------------------------|
+| V21.1   | 2026-05-10 | PR #36: Fix probe contact detection, PR #37: Return to X/Y zero after tool change |
 | V21.0   | 2026-05-03 | Fixed ALARM:4, fast-poll mode, this doc     |
 | V20.x   | 2026-04-xx | Outline scan, combined mode                  |
 | V19.x   | 2026-03-xx | Face probe, layered mode                     |
