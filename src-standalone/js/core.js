@@ -1151,8 +1151,10 @@ async function checkHomedStatus(){
 
 function _parsePos(str){
   if(str && typeof str === 'object' && !Array.isArray(str)){
-    var ox = parseFloat(str.x), oy = parseFloat(str.y), oz = parseFloat(str.z);
-    if(!isNaN(ox) && !isNaN(oy) && !isNaN(oz)) return {x:ox, y:oy, z:oz};
+    if(str.x != null && str.y != null && str.z != null){
+      var ox = parseFloat(str.x), oy = parseFloat(str.y), oz = parseFloat(str.z);
+      if(!isNaN(ox) && !isNaN(oy) && !isNaN(oz)) return {x:ox, y:oy, z:oz};
+    }
   }
   if(!str || typeof str !== 'string') return null;
   var p = str.split(',').map(function(v){ return parseFloat(v.trim()); });
@@ -1177,7 +1179,7 @@ async function getWorkPosition(){
   }
   var rootW = _parsePos(state.wpos || state.WPos || state.workPos || null);
   if(rootW) return {x:rootW.x, y:rootW.y, z:rootW.z, status: status, probeTriggered: probeTriggered};
-  pluginDebug('getWorkPosition FAIL: ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
+  pluginDebug('getWorkPosition FAIL: Expected WPos or MPos/WCO or workPosition/position/pos/x,y,z; ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
   throw new Error('Could not read current position from Sender');
 }
 
