@@ -1538,6 +1538,9 @@
     <!-- ── OUTLINE TAB ───────────────────────────────────────────────── -->
     <div class="tab-panel" id="pane-outline">
 
+      <!-- Jog Controls (teleported here from Setup tab when Outline tab is active; movable via Edit Layout) -->
+      <div class="panel" id="outline-jog-panel" data-panel-key="outline-jog-controls"></div>
+
       <!-- Outline Search Bounds -->
       <div class="panel" data-panel-key="outline-bounds">
         <div class="box-title">&#9711; Outline Search Bounds</div>
@@ -1547,11 +1550,11 @@
             <input type="number" id="outlineX0" value="0" step="1" oninput="updateOutlineProbeCenter()">
           </div>
           <div class="field">
-            <label>X Length (coords)</label>
+            <label><span class="tooltip">X Length (coords)<span class="tip-icon">?</span><span class="tip">Total width of the scan area along the X axis in work coordinates. Combined with X Origin this defines the right boundary of the scan region.</span></span></label>
             <input type="number" id="outlineXLen" value="100" step="1" min="1" oninput="updateOutlineProbeCenter();updateOutlineCountHelpers();updateOutlineGridCountHelpers()">
           </div>
           <div class="field">
-            <label>X Count (cols)</label>
+            <label><span class="tooltip">X Count (cols)<span class="tip-icon">?</span><span class="tip">Number of vertical probe columns distributed evenly across the X length. Minimum 2 (one at each end). Higher values give finer outline resolution along X.</span></span></label>
             <input type="number" id="outlineXCount" value="2" step="1" min="2" oninput="updateOutlineCountHelpers()">
             <span id="outlineXStepHelper" class="mini" style="display:block;margin-top:3px">Computed step: —</span>
           </div>
@@ -1560,11 +1563,11 @@
             <input type="number" id="outlineY0" value="0" step="1" oninput="updateOutlineProbeCenter()">
           </div>
           <div class="field">
-            <label>Y Length (coords)</label>
+            <label><span class="tooltip">Y Length (coords)<span class="tip-icon">?</span><span class="tip">Total depth of the scan area along the Y axis in work coordinates. Combined with Y Origin this defines the far boundary of the scan region.</span></span></label>
             <input type="number" id="outlineYLen" value="100" step="1" min="1" oninput="updateOutlineProbeCenter();updateOutlineCountHelpers();updateOutlineGridCountHelpers()">
           </div>
           <div class="field">
-            <label>Y Count (rows)</label>
+            <label><span class="tooltip">Y Count (rows)<span class="tip-icon">?</span><span class="tip">Number of horizontal probe rows distributed evenly across the Y length. Minimum 2 (one at each end). Higher values give finer outline resolution along Y.</span></span></label>
             <input type="number" id="outlineYCount" value="2" step="1" min="2" oninput="updateOutlineCountHelpers()">
             <span id="outlineYStepHelper" class="mini" style="display:block;margin-top:3px">Computed step: —</span>
           </div>
@@ -1682,9 +1685,6 @@
         </div>
       </div>
 
-      <!-- Jog Controls Placeholder: teleported here from Setup tab when Outline tab is active -->
-      <div id="outline-jog-panel"></div>
-
       <!-- Hold Warning: shown when stop handler cannot automatically clear Hold -->
       <div class="panel" data-panel-key="outline-hold-warning" id="plugin-hold-warning" style="display:none">
         <div class="box-title">&#9888; Hold Warning</div>
@@ -1729,14 +1729,14 @@
         </div>
         <div class="grid two" style="margin-bottom:8px">
           <div class="field">
-            <label>Grid Source</label>
+            <label><span class="tooltip">Grid Source<span class="tip-icon">?</span><span class="tip">Data source for the surface grid boundary. 'Detected Outline' uses the scanned workpiece polygon for best accuracy (run Outline Scan first). 'Outline Search Bounds' falls back to the rectangular search bounds if no outline has been detected.</span></span></label>
             <select id="outlineGridSource" onchange="updateOutlineGridCountHelpers()">
               <option value="detected">Detected Outline (auto-inset)</option>
               <option value="bounds">Outline Search Bounds</option>
             </select>
           </div>
           <div class="field">
-            <label>Outline inset (mm)</label>
+            <label><span class="tooltip">Outline inset (mm)<span class="tip-icon">?</span><span class="tip">Shrinks the detected outline polygon inward by this distance before generating the surface grid. Prevents probe points from landing too close to the workpiece edge. Has no effect when using Outline Search Bounds as the grid source.</span></span></label>
             <input type="number" id="outlineGridMargin" value="2" step="0.1" min="0">
             <span class="mini" style="display:block;margin-top:3px;color:var(--muted)">Shrinks the detected outline polygon inward before grid generation.</span>
           </div>
@@ -1746,7 +1746,7 @@
             <span class="mini" style="display:block;margin-top:3px;color:var(--muted)">Keeps probe points away from the polygon boundary within each row.</span>
           </div>
           <div class="field">
-            <label>Sampling mode</label>
+            <label><span class="tooltip">Sampling mode<span class="tip-icon">?</span><span class="tip">Centered: probe points at cell centres — uniform distribution (default). Edge-inclusive: first and last points land at the edge margin boundary — better coverage near edges for low-resolution grids.</span></span></label>
             <select id="outlineGridSamplingMode">
               <option value="centered">Centered (default)</option>
               <option value="edge-inclusive">Edge-inclusive (probe near edges)</option>
@@ -1754,12 +1754,12 @@
             <span class="mini" style="display:block;margin-top:3px;color:var(--muted)">Centered: points at cell centres. Edge-inclusive: first/last points land at the edge margin boundary — ideal for low-resolution grids.</span>
           </div>
           <div class="field">
-            <label>Surface Grid X Count (cols)</label>
+            <label><span class="tooltip">Surface Grid X Count (cols)<span class="tip-icon">?</span><span class="tip">Number of probe columns in the surface grid along the X axis. More columns produce finer Z height resolution, improving Z-compensation accuracy.</span></span></label>
             <input type="number" id="outlineGridXCount" value="2" step="1" min="2" oninput="updateOutlineGridCountHelpers()">
             <span id="outlineGridXStepHelper" class="mini" style="display:block;margin-top:3px">Computed step: —</span>
           </div>
           <div class="field">
-            <label>Surface Grid Y Count (rows)</label>
+            <label><span class="tooltip">Surface Grid Y Count (rows)<span class="tip-icon">?</span><span class="tip">Number of probe rows in the surface grid along the Y axis. More rows produce finer Z height resolution, improving Z-compensation accuracy.</span></span></label>
             <input type="number" id="outlineGridYCount" value="2" step="1" min="2" oninput="updateOutlineGridCountHelpers()">
             <span id="outlineGridYStepHelper" class="mini" style="display:block;margin-top:3px">Computed step: —</span>
           </div>
