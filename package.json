@@ -1,6 +1,6 @@
 {
   "name": "stand-alone-3d-probe",
-  "version": "21.0.0",
+  "version": "1.0.0-beta.1",
   "description": "Web-based 3D Live Edge Probe for GRBL-compatible CNC machines",
   "scripts": {
     "test": "jest",

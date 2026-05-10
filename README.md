@@ -318,8 +318,8 @@ MIT License - see repository for details
 
 ## Version
 
-**Current:** V21.0
-**Last Updated:** 2026-05-03
+**Current:** Beta V1
+**Last Updated:** 2026-05-10
 
 ---
 
