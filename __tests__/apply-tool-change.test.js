@@ -52,8 +52,9 @@ describe('Apply tab logging and tool-change depth wiring', () => {
     const commands = [];
     const snapshots = [
       { probeTriggered: false },
-      { probeTriggered: true }
+      { probeTriggered: false }
     ];
+    let workZ = 5;  // Starting Z position
     let confirmMessage = '';
 
     const sandbox = {
@@ -67,10 +68,17 @@ describe('Apply tab logging and tool-change depth wiring', () => {
       setFooterStatus: jest.fn(),
       getSettingsFromUI: () => ({ probeFeed: 100, travelFeedRate: 600, machineSafeTopZ: 160 }),
       requireStartupHomingPreflight: async () => {},
-      sendCommand: async (cmd) => { commands.push(cmd); },
+      sendCommand: async (cmd) => {
+        commands.push(cmd);
+        // Simulate probe travel - move Z down when G38.2 is executed
+        if (cmd.includes('G38.2')) {
+          workZ = -50;  // Simulate probe contact at Z=-50
+        }
+      },
       sleep: async () => {},
       _waitForIdleOrStop: async () => {},
       getMachineSnapshot: async () => snapshots.shift(),
+      getWorkPosition: async () => ({ x: 10, y: 20, z: workZ }),
       window,
       setTimeout,
       clearTimeout

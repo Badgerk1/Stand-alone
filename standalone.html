@@ -17233,6 +17233,11 @@ async function toolChangeReturnAndReZero() {
       throw new Error('Probe is already triggered. Clear probe before re-zeroing Z.');
     }
 
+    // Record starting Z position to detect contact via position change
+    var startPos = await getWorkPosition();
+    var startZ = startPos.z;
+    applyLog('PROBE: Starting Z position: ' + startZ.toFixed(3));
+
     // Probe down
     applyLog('PROBE: G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed.toFixed(0) + ' (probing to find surface for Z0)');
     await sendCommand('G91');  // Relative mode
@@ -17247,8 +17252,30 @@ async function toolChangeReturnAndReZero() {
     await sendCommand('G90');  // Back to absolute mode
     await sleep(20);
 
-    // Step 4: Retract 2mm immediately after probe to clear the probe pin
-    // This MUST happen before checking probe status to allow the probe pin to physically clear
+    // Check if probe made contact by comparing position change
+    var endPos = await getWorkPosition();
+    var endZ = endPos.z;
+    var distanceTraveled = startZ - endZ;
+    applyLog('PROBE: End Z position: ' + endZ.toFixed(3) + ', traveled: ' + distanceTraveled.toFixed(3) + 'mm');
+
+    // Validate probe contact: machine should have stopped short of maxPlunge if probe triggered
+    var probeContactTolerance = 0.5; // mm; machine must stop at least this far short of maxPlunge
+    var stoppedShort = distanceTraveled < (maxPlunge - probeContactTolerance);
+    var postSnap = await getMachineSnapshot();
+    var triggered = postSnap.probeTriggered;
+
+    if (!triggered && !stoppedShort) {
+      applyLog('PROBE RESULT: No contact detected - traveled ' + distanceTraveled.toFixed(3) + 'mm (max: ' + maxPlunge.toFixed(3) + 'mm), triggered=' + triggered);
+      throw new Error('Probe did not trigger. Check probe connection and surface height.');
+    }
+
+    if (!triggered && stoppedShort) {
+      applyLog('PROBE RESULT: Contact detected by position (probe pin cleared) - stopped at Z=' + endZ.toFixed(3));
+    } else {
+      applyLog('PROBE RESULT: Contact detected - triggered=' + triggered + ', stopped at Z=' + endZ.toFixed(3));
+    }
+
+    // Step 4: Retract 2mm immediately after probe validation to clear the probe pin
     applyLog('RETRACT: Z +2mm to clear probe pin');
     await sendCommand('G91');
     await sleep(20);
@@ -17258,18 +17285,33 @@ async function toolChangeReturnAndReZero() {
     await sendCommand('G90');
     await sleep(20);
 
-    // Check probe triggered AFTER retraction so probe pin has time to clear
-    var postSnap = await getMachineSnapshot();
-    applyLog('PROBE RESULT: triggered=' + postSnap.probeTriggered + ' after retraction');
-    if (!postSnap.probeTriggered) {
-      throw new Error('Probe did not trigger. Check probe connection and surface height.');
-    }
-
     // Step 5: Set Z0 at 2mm above contact (account for retraction)
     // We retracted 2mm, so set Z to 2.0 to make the contact point Z=0
     applyLog('Setting Z0 at contact point (G10 L20 P0 Z2.0)');
     await sendCommand('G10 L20 P0 Z2.0');
     await sleep(100);
+
+    // Step 6: Raise to machine safe height (Z home) after re-zeroing
+    if (machineSafeZ !== null) {
+      applyLog('Raising Z to machine safe height: Z' + machineSafeZ.toFixed(3) + ' (machine coords)');
+      await sendCommand('G53 G1 Z' + machineSafeZ.toFixed(3) + ' F' + retractFeed.toFixed(0));
+      await sleep(50);
+      await _waitForIdleOrStop(10000);
+      applyLog('Z raised to safe height');
+    } else {
+      // Fallback: raise Z to a safe height in work coordinates
+      applyLog('Raising Z to safe height (Z10 in work coords - no machineSafeTopZ configured)');
+      await sendCommand('G90 G1 Z10 F' + retractFeed.toFixed(0));
+      await sleep(50);
+      await _waitForIdleOrStop(10000);
+    }
+
+    // Step 7: Return to X/Y zero (work coordinate origin)
+    applyLog('Returning to X0 Y0 (work coordinate origin)');
+    await sendCommand('G90 G0 X0 Y0 F' + retractFeed.toFixed(0));
+    await sleep(50);
+    await _waitForIdleOrStop(15000);
+    applyLog('Arrived at X0 Y0');
 
     _toolChangeZReZeroed = true;
     _toolChangeUpdateUI();
