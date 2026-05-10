@@ -17306,6 +17306,13 @@ async function toolChangeReturnAndReZero() {
       await _waitForIdleOrStop(10000);
     }
 
+    // Step 7: Return to X/Y zero (work coordinate origin)
+    applyLog('Returning to X0 Y0 (work coordinate origin)');
+    await sendCommand('G90 G0 X0 Y0 F' + retractFeed.toFixed(0));
+    await sleep(50);
+    await _waitForIdleOrStop(15000);
+    applyLog('Arrived at X0 Y0');
+
     _toolChangeZReZeroed = true;
     _toolChangeUpdateUI();
 
