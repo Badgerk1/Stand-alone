@@ -1649,8 +1649,8 @@
           <button class="btn secondary" id="tool-change-save-btn" onclick="toolChangeSaveReference()">
             &#128190; Save Current Position
           </button>
-          <button class="btn ghost" id="tool-change-move-btn" onclick="toolChangeMoveToReference()" disabled>
-            &#128205; Move to Reference
+          <button class="btn ghost" id="tool-change-move-btn" onclick="flashButton(this);moveToCentre()">
+            &#128205; Move to Outline Centre
           </button>
           <button class="btn" id="tool-change-return-btn" onclick="toolChangeReturnAndReZero()" disabled>
             &#8634; Return & Re-Zero Z
@@ -17440,7 +17440,6 @@ async function toolChangeReturnAndReZero() {
 // ── Update UI Elements ────────────────────────────────────────────────────────
 function _toolChangeUpdateUI() {
   var displayEl = document.getElementById('tool-change-ref-display');
-  var moveBtn = document.getElementById('tool-change-move-btn');
   var returnBtn = document.getElementById('tool-change-return-btn');
 
   if (_toolChangeRefPos) {
@@ -17453,18 +17452,12 @@ function _toolChangeUpdateUI() {
         'Y: ' + _toolChangeRefPos.y.toFixed(3) + 'mm<br>' +
         'Z: ' + _toolChangeRefPos.z.toFixed(3) + 'mm' + zeroStatus;
     }
-    if (moveBtn) {
-      moveBtn.disabled = false;
-    }
     if (returnBtn) {
       returnBtn.disabled = false;
     }
   } else {
     if (displayEl) {
       displayEl.innerHTML = 'No reference position saved yet';
-    }
-    if (moveBtn) {
-      moveBtn.disabled = true;
     }
     if (returnBtn) {
       returnBtn.disabled = true;

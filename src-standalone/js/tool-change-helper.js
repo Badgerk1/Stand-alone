@@ -385,7 +385,6 @@ async function toolChangeReturnAndReZero() {
 // ── Update UI Elements ────────────────────────────────────────────────────────
 function _toolChangeUpdateUI() {
   var displayEl = document.getElementById('tool-change-ref-display');
-  var moveBtn = document.getElementById('tool-change-move-btn');
   var returnBtn = document.getElementById('tool-change-return-btn');
 
   if (_toolChangeRefPos) {
@@ -398,18 +397,12 @@ function _toolChangeUpdateUI() {
         'Y: ' + _toolChangeRefPos.y.toFixed(3) + 'mm<br>' +
         'Z: ' + _toolChangeRefPos.z.toFixed(3) + 'mm' + zeroStatus;
     }
-    if (moveBtn) {
-      moveBtn.disabled = false;
-    }
     if (returnBtn) {
       returnBtn.disabled = false;
     }
   } else {
     if (displayEl) {
       displayEl.innerHTML = 'No reference position saved yet';
-    }
-    if (moveBtn) {
-      moveBtn.disabled = true;
     }
     if (returnBtn) {
       returnBtn.disabled = true;
