@@ -1059,8 +1059,8 @@ function smLoadSettings() {
   if(btnApply2d) btnApply2d.addEventListener('click', function(){ flashButton(this); pluginDebug('sm-btn-apply-comp clicked'); applySurfaceCompensation(); });
   var btnDownload2d = document.getElementById('sm-btn-download-comp');
   if(btnDownload2d) btnDownload2d.addEventListener('click', function(){ flashButton(this); pluginDebug('sm-btn-download-comp clicked'); smDownloadCompensatedGcode(); });
-  var btnSendNcSender2d = document.getElementById('sm-btn-send-ncsender');
-  if(btnSendNcSender2d) btnSendNcSender2d.addEventListener('click', function(){ flashButton(this); pluginDebug('sm-btn-send-ncsender clicked'); sendCompToNcSender(smCompensatedGcode, 'compensated_surface'); });
+  var btnSendSender2d = document.getElementById('sm-btn-send-sender');
+  if(btnSendSender2d) btnSendSender2d.addEventListener('click', function(){ flashButton(this); pluginDebug('sm-btn-send-sender clicked'); sendCompToSender(smCompensatedGcode, 'compensated_surface'); });
 
   // Face Probe Tab — Mesh Data Management buttons
   var faceBtnSaveMesh = document.getElementById('face-btn-save-mesh');

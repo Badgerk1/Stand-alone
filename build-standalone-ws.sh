@@ -9,7 +9,7 @@
 # is appended AFTER all src/js/*.js files inside the same <script> block.
 # JavaScript resolves duplicate function declarations last-wins, so the
 # transport overrides in websocket-transport.js silently replace the
-# fetch-based ncSender calls in src/js/core.js:
+# fetch-based Sender calls in src/js/core.js:
 #
 #   sendCommand()                   → WebSocket send + wait for GRBL 'ok'
 #   _getState()                     → send '?' + parse GRBL status report

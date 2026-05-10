@@ -118,9 +118,9 @@ describe('Apply tab logging and tool-change depth wiring', () => {
     expect(uiHelpersSource).toMatch(/applyLog\('\[SURFACE\] ' \+ msg\);/);
     expect(uiHelpersSource).toMatch(/applyLog\('\[FACE\] ' \+ msg\);/);
     expect(uiHelpersSource).toMatch(/Downloaded compensated ' \+ type \+ ' G-code/);
-    expect(uiHelpersSource).toMatch(/Sending ' \+ type \+ ' G-code to ncSender\.\.\./);
+    expect(uiHelpersSource).toMatch(/Sending ' \+ type \+ ' G-code to Sender\.\.\./);
 
-    expect(probeEngineSource).toMatch(/Loading G-code from ncSender\.\.\./);
+    expect(probeEngineSource).toMatch(/Loading G-code from Sender\.\.\./);
     expect(probeEngineSource).toMatch(/Analyzing loaded G-code bounds\.\.\./);
     expect(probeEngineSource).toMatch(/Starting surface compensation:/);
     expect(probeEngineSource).toMatch(/Starting face compensation:/);

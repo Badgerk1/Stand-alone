@@ -1382,9 +1382,9 @@
       <!-- G-code Source -->
       <div class="panel" data-panel-key="apply-gcode-src">
         <div class="box-title">&#128196; G-code Source</div>
-        <div class="callout mini" style="margin-bottom:10px">Load the G-code program to apply Z compensation. You can paste G-code, load from a file, or use the currently loaded program in ncSender.</div>
+        <div class="callout mini" style="margin-bottom:10px">Load the G-code program to apply Z compensation. You can paste G-code, load from a file, or use the currently loaded program in Sender.</div>
         <div class="btn-row" style="margin-bottom:10px">
-          <button class="btn" id="apply-btn-load-ncsender" onclick="flashButton(this);applyLoadGcodeFromNcSender()">&#128268; Load from ncSender</button>
+          <button class="btn" id="apply-btn-load-sender" onclick="flashButton(this);applyLoadGcodeFromSender()">&#128268; Load from Sender</button>
           <button class="btn ghost" id="apply-btn-load-file" onclick="flashButton(this);document.getElementById('apply-gcode-file-input').click()">&#128194; Load from File</button>
           <input type="file" id="apply-gcode-file-input" accept=".nc,.gcode,.ngc,.tap,.txt" style="display:none">
           <button class="btn ghost" id="apply-btn-analyze-bounds" onclick="flashButton(this);applyAnalyzeGcodeBounds()" title="Analyze loaded G-code to get XY bounding box (uses server-side analysis)">&#128270; Analyze Bounds</button>
@@ -1462,7 +1462,7 @@
         <div class="btn-row">
           <button class="btn secondary" id="apply-btn-surface-comp" onclick="flashButton(this);applyServerSurfaceCompensation()" disabled>&#9889; Apply Surface Compensation</button>
           <button class="btn ghost" id="apply-btn-download-surface" onclick="flashButton(this);applyDownloadCompensatedGcode('surface')" disabled>&#8659; Download</button>
-          <button class="btn" id="apply-btn-send-ncsender-surface" onclick="flashButton(this);applySendToNcSender('surface')" disabled>&#128640; Send to ncSender</button>
+          <button class="btn" id="apply-btn-send-sender-surface" onclick="flashButton(this);applySendToSender('surface')" disabled>&#128640; Send to Sender</button>
         </div>
         <div class="status-line" id="apply-surface-status" style="margin-top:8px"></div>
         <div id="apply-surface-log" class="log-area" style="display:none;margin-top:8px"></div>
@@ -1511,7 +1511,7 @@
         <div class="btn-row">
           <button class="btn secondary" id="apply-btn-face-comp" onclick="flashButton(this);applyFaceCompensationFromTab()" disabled>&#128736; Apply Face Compensation</button>
           <button class="btn ghost" id="apply-btn-download-face" onclick="flashButton(this);applyDownloadCompensatedGcode('face')" disabled>&#8659; Download</button>
-          <button class="btn" id="apply-btn-send-ncsender-face" onclick="flashButton(this);applySendToNcSender('face')" disabled>&#128640; Send to ncSender</button>
+          <button class="btn" id="apply-btn-send-sender-face" onclick="flashButton(this);applySendToSender('face')" disabled>&#128640; Send to Sender</button>
         </div>
         <div class="status-line" id="apply-face-status" style="margin-top:8px"></div>
         <div id="apply-face-log" class="log-area" style="display:none;margin-top:8px"></div>
@@ -1692,7 +1692,7 @@
           <div style="color:var(--warn,#e8a020);font-weight:600;margin-bottom:6px">&#9888; Controller still in Hold</div>
           <div class="mini" style="margin-bottom:8px">
             The controller is in Hold and the motion queue may still contain buffered moves.
-            Click <strong>Clear Hold (Stop)</strong> below to cancel the queue via ncSender&rsquo;s stop endpoint without resuming buffered motion.
+            Click <strong>Clear Hold (Stop)</strong> below to cancel the queue via Sender&rsquo;s stop endpoint without resuming buffered motion.
             Once Hold clears, the plugin will automatically retract to safe Z and return to X0&nbsp;Y0.<br>
             <em>&#9888; <strong>Resume&nbsp;(~) &mdash; UNSAFE fallback</strong> will resume any queued move before the safety retract runs. Only use it if Clear Hold (Stop) is unavailable.</em>
           </div>

@@ -102,7 +102,7 @@ var BUTTONS = [
   { id: 'comb-btn-export-csv' },
   { id: 'comb-btn-export-json' },
   { id: 'comb-btn-clear-mesh' },
-  { id: 'apply-btn-load-ncsender' },
+  { id: 'apply-btn-load-sender' },
   { id: 'apply-btn-load-file' },
   { id: 'apply-btn-analyze-bounds' },
   { id: 'res-btn-save-3d' },
@@ -137,7 +137,7 @@ var FUNCTIONS_TO_CHECK = [
   'pluginDebug',
   'clearAllVisuals',
   'clearAllResults',
-  'applyLoadGcodeFromNcSender', 'applyAnalyzeGcodeBounds',
+  'applyLoadGcodeFromSender', 'applyAnalyzeGcodeBounds',
   'smSaveReplayHtml'
 ];
 

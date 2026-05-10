@@ -85,23 +85,23 @@ var _wsHaveWorkCoords = false;
     '<span id="ws-status" style="font-size:12px;color:var(--muted);white-space:nowrap">&#9675; Not connected</span>' +
     '<span id="ws-wcs-display" style="font-size:11px;color:var(--accent2,#5fd38d);white-space:nowrap;display:none"></span>';
 
-  // ── Apply tab — adapt buttons for standalone-ws (no ncSender) ──────────────
-  // Rename "Load from ncSender" to clarify it is not available here.
-  var btnLoadNc = document.getElementById('apply-btn-load-ncsender');
+  // ── Apply tab — adapt buttons for standalone-ws (no Sender) ──────────────
+  // Rename "Load from Sender" to clarify it is not available here.
+  var btnLoadNc = document.getElementById('apply-btn-load-sender');
   if (btnLoadNc) {
     btnLoadNc.textContent = '\u26a0\ufe0f Not available (standalone)';
-    btnLoadNc.title = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    btnLoadNc.title = 'Sender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
     btnLoadNc.classList.remove('btn');
     btnLoadNc.classList.add('btn', 'ghost');
   }
 
-  // Rename "Send to ncSender" buttons to "Send to Machine".
-  var btnSendSurface = document.getElementById('apply-btn-send-ncsender-surface');
+  // Rename "Send to Sender" buttons to "Send to Machine".
+  var btnSendSurface = document.getElementById('apply-btn-send-sender-surface');
   if (btnSendSurface) {
     btnSendSurface.innerHTML = '&#9654; Send to Machine';
     btnSendSurface.title = 'Stream the compensated G-code line-by-line to the controller over WebSocket.';
   }
-  var btnSendFace = document.getElementById('apply-btn-send-ncsender-face');
+  var btnSendFace = document.getElementById('apply-btn-send-sender-face');
   if (btnSendFace) {
     btnSendFace.innerHTML = '&#9654; Send to Machine';
     btnSendFace.title = 'Stream the compensated G-code line-by-line to the controller over WebSocket.';
@@ -377,7 +377,7 @@ function _wsConsoleSend(cmd) {
 
 // ── Mini Console UI injection ─────────────────────────────────────────────────
 // Injects a "Mini Console / Sender" panel into the Setup tab so the user can
-// send arbitrary commands and see raw controller output without ncSender.
+// send arbitrary commands and see raw controller output without Sender.
 (function _wsInjectConsole() {
   var setupPane = document.getElementById('pane-setup');
   if (!setupPane) return;
@@ -634,12 +634,12 @@ async function requireStartupHomingPreflight(runLabel) {
   return info;
 }
 
-// ── Override: applyLoadGcodeFromNcSender ──────────────────────────────────────
-// In standalone-ws mode there is no ncSender — direct the user to "Load from File".
-async function applyLoadGcodeFromNcSender() {
+// ── Override: applyLoadGcodeFromSender ──────────────────────────────────────
+// In standalone-ws mode there is no Sender — direct the user to "Load from File".
+async function applyLoadGcodeFromSender() {
   var statusEl = document.getElementById('apply-gcode-status');
   if (statusEl) {
-    statusEl.textContent = 'ncSender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
+    statusEl.textContent = 'Sender is not available in standalone mode. Use \u201cLoad from File\u201d to load G-code.';
     statusEl.className = 'status-line warn';
   }
   setFooterStatus('Standalone mode: use \u201cLoad from File\u201d to load G-code.', 'warn');
@@ -648,10 +648,10 @@ async function applyLoadGcodeFromNcSender() {
 // ── G-code streaming state ────────────────────────────────────────────────────
 var _wsStreamRunning = false;
 
-// ── Override: sendCompToNcSender ──────────────────────────────────────────────
+// ── Override: sendCompToSender ──────────────────────────────────────────────
 // In standalone-ws mode this streams the compensated G-code line-by-line to the
-// controller over the WebSocket instead of pushing it to ncSender.
-async function sendCompToNcSender(gcodeText, label) {
+// controller over the WebSocket instead of pushing it to Sender.
+async function sendCompToSender(gcodeText, label) {
   if (!gcodeText) { alert('No compensated G-code. Apply compensation first.'); return; }
   if (!_wsConnected) { alert('Not connected. Click \u201cConnect\u201d and enter the controller IP first.'); return; }
   if (_wsStreamRunning) { alert('A G-code stream is already running. Stop it first.'); return; }

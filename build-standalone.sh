@@ -8,7 +8,7 @@
 # appended AFTER all src/js/*.js files inside the same <script> block.
 # JavaScript resolves duplicate function declarations last-wins, so the
 # transport overrides in webserial-transport.js silently replace the
-# fetch-based ncSender calls in src/js/core.js:
+# fetch-based Sender calls in src/js/core.js:
 #
 #   sendCommand()                   → serial write + wait for GRBL 'ok'
 #   _getState()                     → send '?' + parse GRBL status report

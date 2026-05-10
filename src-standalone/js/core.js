@@ -113,8 +113,8 @@ function clearAllVisuals() {
 /**
  * _trySafeStopEndpoints(label)
  *
- * Tries ncSender-compatible safe-stop endpoints in best-practice order:
- *   1. POST /api/gcode-job/stop  — ncSender job stop (clears queue, no resume)
+ * Tries Sender-compatible safe-stop endpoints in best-practice order:
+ *   1. POST /api/gcode-job/stop  — Sender job stop (clears queue, no resume)
  *   2. POST /api/probe/stop      — probe-op stop (safe no-op if 404)
  *   3. POST /api/gcode/stop      — legacy / backward-compat fallback
  *
@@ -160,7 +160,7 @@ async function _trySafeStopEndpoints(label) {
  *  1. Sets all stop flags so no new commands are queued.
  *  2. Sends real-time Feed Hold (!) to halt motion ASAP.
  *  3. Polls until machineState.status is Hold (up to 1 s).
- *  4. Tries ncSender safe-stop endpoints to cancel queued motion without resuming.
+ *  4. Tries Sender safe-stop endpoints to cancel queued motion without resuming.
  *     Order: /api/gcode-job/stop → /api/probe/stop → /api/gcode/stop.
  *     Does NOT automatically send ~ regardless of whether an endpoint succeeds.
  *  5. Polls until machineState.status is no longer Hold (up to 4 s).
@@ -174,7 +174,7 @@ async function _trySafeStopEndpoints(label) {
  *  9. Clears _safetyMoveActive.
  *
  * Does NOT require controller unlock or re-home.
- * Does NOT require the user to switch to ncSender.
+ * Does NOT require the user to switch to Sender.
  * Never auto-sends ~; ~ is only sent when the user explicitly clicks the fallback button.
  */
 async function stopNowAndSafeHome(reason) {
@@ -237,12 +237,12 @@ async function stopNowAndSafeHome(reason) {
     return;
   }
 
-  // 4. Try to cancel queued motion via ncSender-compatible safe-stop endpoints.
+  // 4. Try to cancel queued motion via Sender-compatible safe-stop endpoints.
   //    Order: /api/gcode-job/stop → /api/probe/stop → /api/gcode/stop.
   //    We do NOT automatically send ~ regardless of outcome — that would resume
   //    buffered moves.  ~ is only sent when the user explicitly clicks the button.
   _stopLog(label + ': clearing hold/queue (safe stop)');
-  pluginDebug(label + ': attempting safe hold clear via ncSender-compatible endpoints');
+  pluginDebug(label + ': attempting safe hold clear via Sender-compatible endpoints');
   var _usedSafeStop = await _trySafeStopEndpoints(label);
   if (_usedSafeStop) {
     _stopLog(label + ': safe stop endpoint succeeded — Hold/queue should be cleared');
@@ -277,7 +277,7 @@ async function stopNowAndSafeHome(reason) {
     // Controller is still in Hold — warn the user and show the manual action panel.
     // Keep the panel visible and poll at a low frequency until Hold clears or the
     // user navigates away (no forced timeout — user must act via the panel buttons).
-    _stopLog(label + ': WARNING — controller still in Hold. Use "Clear Hold (Stop)" in the panel to cancel the queue via ncSender, or press "Resume (~) — UNSAFE fallback" only if Stop is unavailable; safety moves will continue once Hold clears.');
+    _stopLog(label + ': WARNING — controller still in Hold. Use "Clear Hold (Stop)" in the panel to cancel the queue via Sender, or press "Resume (~) — UNSAFE fallback" only if Stop is unavailable; safety moves will continue once Hold clears.');
     setFooterStatus(label + ': controller still in Hold — use Clear Hold (Stop) in the panel', 'warn');
     pluginDebug(label + ': controller still in Hold after 4s; showing hold-warning panel (polling until cleared)');
     _showResumeButtonWarning(true);
@@ -679,7 +679,7 @@ async function sendResumeCommand() {
 
 /**
  * sendClearHoldCommand()
- * Calls the ncSender-compatible safe-stop endpoints to cancel queued motion and
+ * Calls the Sender-compatible safe-stop endpoints to cancel queued motion and
  * clear Hold without resuming buffered moves.  Called by the "Clear Hold (Stop)"
  * button in the Hold Warning panel.
  */
@@ -690,7 +690,7 @@ async function sendClearHoldCommand() {
     if (ok) {
       setFooterStatus('Clear Hold (Stop): succeeded — Hold should be cleared.', 'ok');
     } else {
-      setFooterStatus('Clear Hold (Stop): no endpoint available. Try ncSender Stop manually.', 'bad');
+      setFooterStatus('Clear Hold (Stop): no endpoint available. Try Sender Stop manually.', 'bad');
     }
     try { var after = await getMachineSnapshot(); updateMachineHelperUI(after); } catch(_e) {}
   } catch(e) {
@@ -732,7 +732,7 @@ function stopAll(){
   });
 }
 
-// ── ncSender API bridge (fetch-based) ─────────────────────────────────────────
+// ── Sender API bridge (fetch-based) ─────────────────────────────────────────
 async function sendCommand(gcode, timeoutMs){
   pluginDebug('sendCommand ENTER: cmd="' + gcode + '" timeout=' + ((timeoutMs !== null && timeoutMs !== undefined) ? timeoutMs : 15000) + 'ms');
   console.log('[' + tsMs() + '] SEND: ' + gcode);
@@ -743,7 +743,7 @@ async function sendCommand(gcode, timeoutMs){
     var r = await fetch('/api/send-command', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({command: gcode, meta: {sourceId: 'plugin', plugin: 'com.ncsender.edgeprobe.combined'}}),
+      body: JSON.stringify({command: gcode, meta: {sourceId: 'plugin', plugin: 'com.sender.edgeprobe.combined'}}),
       signal: controller.signal
     });
     var js = await r.json();
@@ -1003,7 +1003,7 @@ async function jogBy(dx, dy, dz){
   var feed = (dz != null && dx == null && dy == null) ? jog.feedZ : jog.feedXY;
   if (!isFinite(feed) || feed <= 0) feed = (dz != null) ? 300 : 600;
   // Use standard incremental G-code (G91 G1) instead of the GRBL-specific $J= command
-  // so the move works across all GRBL-compatible controllers and the NCSender API.
+  // so the move works across all GRBL-compatible controllers and the Sender API.
   // G90 is queued immediately after so absolute mode is restored once the move finishes.
   var cmd = 'G91 G1';
   if (dx != null) cmd += ' X' + Number(dx).toFixed(3);
@@ -1165,7 +1165,7 @@ async function getWorkPosition(){
   var m = _parsePos(ms.MPos), wco = _parsePos(ms.WCO);
   if(m && wco) return {x:m.x-wco.x, y:m.y-wco.y, z:m.z-wco.z, status: status, probeTriggered: probeTriggered};
   if(m) return {x:m.x, y:m.y, z:m.z, status: status, probeTriggered: probeTriggered};
-  throw new Error('Could not read current position from ncSender');
+  throw new Error('Could not read current position from Sender');
 }
 
 async function waitForIdle(fastPoll){
@@ -1335,7 +1335,7 @@ function clearPanelSettings(panelElOrId) {
   var topSampleCount  = parseInt((document.getElementById('topSampleCount') || {}).value, 10) || 10;
   var topDirection    = (document.getElementById('topDirection') || {}).value || '+';
   return {
-    pluginId: 'com.ncsender.edgeprobe.combined',
+    pluginId: 'com.sender.edgeprobe.combined',
     pluginVersion: SM_VERSION,
     version: '1.7.0',
     timestamp: new Date().toISOString(),
@@ -1834,7 +1834,7 @@ function bindProbeDimensionUI(){
   // Allow free manual keyboard entry in all non-readonly number inputs.
   // Remove min/max permanently (not restored on blur) so that clearing a field
   // does not cause Chromium/Electron to snap the value back to the min value.
-  // Stop keyboard event propagation so the host application (ncSender/Electron)
+  // Stop keyboard event propagation so the host application (Sender/Electron)
   // cannot intercept keystrokes that belong to the focused input field.
   Array.prototype.forEach.call(document.querySelectorAll('input[type="number"]:not([readonly])'), function(el) {
     el.step = 'any';
@@ -1904,7 +1904,7 @@ function pluginCleanupOnClose() {
 // NOTE: pluginCleanupOnClose() does NOT send any machine commands.
 // It only clears in-memory data, localStorage probe results, and Three.js
 // GPU resources.  We intentionally do NOT attach this to 'beforeunload'
-// because some plugin host environments (e.g. ncSender) interpret a
+// because some plugin host environments (e.g. Sender) interpret a
 // beforeunload event from the plugin panel as a full disconnect/reset,
 // which can clear the controller's homed state even when the user only
 // closed the UI panel after successfully unlocking with $X.
