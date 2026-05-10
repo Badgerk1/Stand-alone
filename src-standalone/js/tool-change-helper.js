@@ -268,6 +268,9 @@ async function toolChangeReturnAndReZero() {
     await sendCommand('G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed.toFixed(0));
     await sleep(100);
     await _waitForIdleOrStop(20000);
+    // Restore absolute mode immediately after probe completes to clear any error state
+    // (matches pattern in smPlungeProbe - G90 must be sent before probe validation to
+    // ensure retraction can execute even if probe errors occur)
     await sendCommand('G90');  // Back to absolute mode
     await sleep(20);
 
@@ -277,11 +280,8 @@ async function toolChangeReturnAndReZero() {
       throw new Error('Probe did not trigger. Check probe connection and surface height.');
     }
 
-    // Step 4: Set Z0 at this position
-    await sendCommand('G10 L20 P0 Z0');
-    await sleep(100);
-
-    // Step 5: Retract slightly
+    // Step 4: Retract slightly BEFORE setting Z0 to ensure probe clears surface
+    // This prevents issues if Z0 setting fails or errors occur
     await sendCommand('G91');
     await sleep(20);
     await sendCommand('G0 Z2 F' + (cfg.travelFeedRate || 1200));
@@ -289,6 +289,11 @@ async function toolChangeReturnAndReZero() {
     await _waitForIdleOrStop(5000);
     await sendCommand('G90');
     await sleep(20);
+
+    // Step 5: Set Z0 at 2mm above contact (account for retraction)
+    // We retracted 2mm, so set Z to 2.0 to make the contact point Z=0
+    await sendCommand('G10 L20 P0 Z2.0');
+    await sleep(100);
 
     _toolChangeZReZeroed = true;
     _toolChangeUpdateUI();
