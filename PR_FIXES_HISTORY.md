@@ -732,6 +732,7 @@ When implementing fixes or new features, test against these scenarios:
 
 | Version | Date       | Changes                                      |
 |---------|------------|----------------------------------------------|
+| Beta V1 | 2026-05-10 | Official Beta V1 release with unified version naming |
 | V21.1   | 2026-05-10 | PR #36: Fix probe contact detection, PR #37: Return to X/Y zero after tool change |
 | V21.0   | 2026-05-03 | Fixed ALARM:4, fast-poll mode, this doc     |
 | V20.x   | 2026-04-xx | Outline scan, combined mode                  |

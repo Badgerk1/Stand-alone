@@ -1,7 +1,7 @@
 # Stand-alone 3D Live Edge Probe - Full Functionality Documentation
 
-**Version:** V21.0
-**Last Updated:** 2026-05-03
+**Version:** Beta V1
+**Last Updated:** 2026-05-10
 
 ---
 
@@ -533,7 +533,7 @@ clearPanelSettings(panelId)
 ```json
 {
   "pluginId": "com.sender.edgeprobe.combined",
-  "pluginVersion": "V21.0",
+  "pluginVersion": "Beta V1",
   "version": "1.7.0",
   "timestamp": "2026-05-03T18:30:00.000Z",
   "gridConfig": {
@@ -1032,7 +1032,7 @@ POST /api/gcode/stop       // Legacy fallback
 
 **Author:** Badgerk1
 **Plugin ID:** `com.sender.edgeprobe.combined`
-**Version:** V21.0
+**Version:** Beta V1
 
 **Technologies:**
 - Three.js (3D visualization)
