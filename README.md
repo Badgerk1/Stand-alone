@@ -45,6 +45,12 @@ A comprehensive probing application that provides advanced 3D surface and edge p
 
 Comprehensive documentation is available in the following files:
 
+### 🤖 [AUTOMATION.md](./AUTOMATION.md)
+**Automated version management system:**
+- Auto-increments beta version on every merge to main
+- Updates all files and rebuilds automatically
+- No manual version bumps needed!
+
 ### 📘 [FUNCTIONALITY.md](./FUNCTIONALITY.md)
 Complete guide to all features, modes, and capabilities:
 - System architecture and module structure
