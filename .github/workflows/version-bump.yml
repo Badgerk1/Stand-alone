@@ -1,0 +1,164 @@
+name: Auto Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  bump-version:
+    # Only run if PR was merged (not just closed)
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: main
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Extract current version from config-body.html
+      id: get_version
+      run: |
+        # Extract current version (e.g., "Beta V1" -> 1)
+        CURRENT_VERSION=$(grep -oP 'Beta V\K[0-9]+' src-standalone/config-body.html | head -1)
+        echo "Current beta version: $CURRENT_VERSION"
+
+        # Increment version
+        NEW_VERSION=$((CURRENT_VERSION + 1))
+        echo "New beta version: $NEW_VERSION"
+
+        # Set outputs
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version_string=Beta V$NEW_VERSION" >> $GITHUB_OUTPUT
+
+        # Get current date
+        CURRENT_DATE=$(date +%Y-%m-%d)
+        echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+
+    - name: Update package.json version
+      run: |
+        NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
+        sed -i "s/\"version\": \"1.0.0-beta.[0-9]*\"/\"version\": \"1.0.0-beta.$NEW_VERSION\"/" package.json
+        echo "✓ Updated package.json"
+
+    - name: Update config-body.html version (header)
+      run: |
+        VERSION_STRING="${{ steps.get_version.outputs.version_string }}"
+        # Update header subtitle version tag (line ~13)
+        sed -i "s/<span id=\"sm-version-tag\">Beta V[0-9]*<\/span>/<span id=\"sm-version-tag\">$VERSION_STRING<\/span>/" src-standalone/config-body.html
+        echo "✓ Updated config-body.html header"
+
+    - name: Update config-body.html version (footer)
+      run: |
+        VERSION_STRING="${{ steps.get_version.outputs.version_string }}"
+        # Update footer version text (line ~1862)
+        sed -i "s/3D Live Edge Mesh Beta V[0-9]*/3D Live Edge Mesh $VERSION_STRING/" src-standalone/config-body.html
+        echo "✓ Updated config-body.html footer"
+
+    - name: Update README.md version
+      run: |
+        VERSION_STRING="${{ steps.get_version.outputs.version_string }}"
+        CURRENT_DATE="${{ steps.get_version.outputs.current_date }}"
+
+        # Update version in README
+        sed -i "s/\*\*Current:\*\* Beta V[0-9]*/\*\*Current:\*\* $VERSION_STRING/" README.md
+        sed -i "s/\*\*Last Updated:\*\* [0-9-]*/\*\*Last Updated:\*\* $CURRENT_DATE/" README.md
+        echo "✓ Updated README.md"
+
+    - name: Update VERSION.md
+      run: |
+        VERSION_STRING="${{ steps.get_version.outputs.version_string }}"
+        NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
+        CURRENT_DATE="${{ steps.get_version.outputs.current_date }}"
+        PR_NUMBER="${{ github.event.pull_request.number }}"
+        PR_TITLE="${{ github.event.pull_request.title }}"
+
+        # Update current version at top
+        sed -i "s/\*\*Current Version:\*\* Beta V[0-9]*/\*\*Current Version:\*\* $VERSION_STRING/" VERSION.md
+
+        # Create new version entry and insert after line 21
+        NEW_ENTRY="### $VERSION_STRING ($CURRENT_DATE)\n**Status:** Current beta release\n\n**Changes (PR #$PR_NUMBER):**\n- $PR_TITLE\n\n**Notes:**\n- Auto-incremented from previous version\n- See PR #$PR_NUMBER for full details\n\n---\n"
+
+        # Insert new entry after "## Beta Version Log" line
+        sed -i "/## Beta Version Log/a\\
+\\
+$NEW_ENTRY" VERSION.md
+
+        echo "✓ Updated VERSION.md"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20.x'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run tests
+      run: npm test
+      continue-on-error: false
+
+    - name: Rebuild standalone HTML files
+      run: |
+        echo "Building standalone.html..."
+        bash build-standalone.sh
+
+        echo "Building standalone-ws.html..."
+        bash build-standalone-ws.sh
+
+        echo "✓ Rebuild complete"
+
+    - name: Commit and push version bump
+      run: |
+        VERSION_STRING="${{ steps.get_version.outputs.version_string }}"
+        PR_NUMBER="${{ github.event.pull_request.number }}"
+
+        # Check if there are changes to commit
+        if [[ -n $(git status -s) ]]; then
+          git add package.json src-standalone/config-body.html README.md VERSION.md standalone.html standalone-ws.html
+          git commit -m "chore: Bump version to $VERSION_STRING after merge of PR #$PR_NUMBER
+
+Auto-incremented beta version after successful merge.
+
+- Updated package.json
+- Updated config-body.html (header and footer)
+- Updated README.md
+- Updated VERSION.md
+- Rebuilt standalone.html and standalone-ws.html
+
+[skip ci]"
+
+          git push origin main
+          echo "✓ Version bump committed and pushed"
+        else
+          echo "ℹ No changes to commit"
+        fi
+
+    - name: Create summary
+      run: |
+        VERSION_STRING="${{ steps.get_version.outputs.version_string }}"
+        echo "## 🎉 Version Bump Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**New Version:** $VERSION_STRING" >> $GITHUB_STEP_SUMMARY
+        echo "**Date:** ${{ steps.get_version.outputs.current_date }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Merged PR:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Files Updated:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✓ package.json" >> $GITHUB_STEP_SUMMARY
+        echo "- ✓ src-standalone/config-body.html" >> $GITHUB_STEP_SUMMARY
+        echo "- ✓ README.md" >> $GITHUB_STEP_SUMMARY
+        echo "- ✓ VERSION.md" >> $GITHUB_STEP_SUMMARY
+        echo "- ✓ standalone.html (rebuilt)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✓ standalone-ws.html (rebuilt)" >> $GITHUB_STEP_SUMMARY

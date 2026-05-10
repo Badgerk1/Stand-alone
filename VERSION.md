@@ -4,17 +4,37 @@
 
 ---
 
+## 🤖 Automated Version Bumps
+
+**This repository now has automated version management!**
+
+When you merge a PR to `main`, a GitHub Actions workflow automatically:
+- Increments the beta version number (V1 → V2 → V3, etc.)
+- Updates all version references in the codebase
+- Rebuilds the HTML files
+- Commits and pushes the changes
+
+**See [AUTOMATION.md](./AUTOMATION.md) for complete details.**
+
+---
+
 ## Version Tracking
 
 This document tracks the version history of the standalone 3D Live Edge Mesh application. The version number appears in:
 - Header subtitle: `src-standalone/config-body.html` line 13
 - Footer: `src-standalone/config-body.html` line 1865
+- Package.json: `version` field
+- README.md: Version section
 
-**After changing the version:**
+**Automated process (recommended):**
+- Just merge your PR to `main` - version bumps automatically!
+
+**Manual process (for special cases only):**
 1. Edit `src-standalone/config-body.html` (both locations)
-2. Run `bash build-standalone.sh`
-3. Run `bash build-standalone-ws.sh`
-4. Commit with message indicating version change and what was fixed/added
+2. Edit `package.json` and `README.md`
+3. Run `bash build-standalone.sh`
+4. Run `bash build-standalone-ws.sh`
+5. Commit with message indicating version change and what was fixed/added
 
 ---
 
