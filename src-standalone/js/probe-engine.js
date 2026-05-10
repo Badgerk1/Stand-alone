@@ -892,6 +892,7 @@ var PLUGIN_ID = 'com.ncsender.edgeprobe.combined';
 
 async function applyLoadGcodeFromNcSender() {
   var statusEl = document.getElementById('apply-gcode-status');
+  applyLog('Loading G-code from ncSender...');
   try {
     // Try /api/gcode-files/current to get loaded G-code content
     var r = await fetch('/api/gcode-files/current');
@@ -900,8 +901,11 @@ async function applyLoadGcodeFromNcSender() {
       if (data && data.content) {
         applyOriginalGcode = data.content;
         var lines = applyOriginalGcode.split('\n').length;
-        if (statusEl) statusEl.textContent = 'Loaded from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : '');
-        statusEl.className = 'status-line good';
+        if (statusEl) {
+          statusEl.textContent = 'Loaded from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : '');
+          statusEl.className = 'status-line good';
+        }
+        applyLog('Loaded G-code from ncSender: ' + lines + ' lines' + (data.filename ? ' (' + data.filename + ')' : ''));
         applyUpdateButtons();
         return;
       }
@@ -917,62 +921,76 @@ async function applyLoadGcodeFromNcSender() {
         if (r3.ok) {
           applyOriginalGcode = await r3.text();
           var lines = applyOriginalGcode.split('\n').length;
-          if (statusEl) statusEl.textContent = 'Loaded: ' + filename + ' (' + lines + ' lines)';
-          statusEl.className = 'status-line good';
+          if (statusEl) {
+            statusEl.textContent = 'Loaded: ' + filename + ' (' + lines + ' lines)';
+            statusEl.className = 'status-line good';
+          }
+          applyLog('Loaded G-code from ncSender cache: ' + filename + ' (' + lines + ' lines)');
           applyUpdateButtons();
           return;
         }
       }
     }
     if (statusEl) { statusEl.textContent = 'No G-code loaded in ncSender. Load a file first.'; statusEl.className = 'status-line warn'; }
+    applyLog('ERROR: No G-code loaded in ncSender.');
   } catch(e) {
     if (statusEl) { statusEl.textContent = 'Error loading from ncSender: ' + e.message; statusEl.className = 'status-line bad'; }
+    applyLog('ERROR loading G-code from ncSender: ' + e.message);
   }
 }
 
 async function applyAnalyzeGcodeBounds() {
   if (!applyOriginalGcode) { alert('Load G-code first.'); return; }
   var boundsEl = document.getElementById('apply-gcode-bounds-info');
-  // Client-side bounds analysis (same algorithm as server)
-  var bounds = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
-  var currentX = 0, currentY = 0, currentZ = 0;
-  var isAbsolute = true;
-  var lines = applyOriginalGcode.split('\n');
-  for (var i = 0; i < lines.length; i++) {
-    var trimmed = lines[i].trim().toUpperCase();
-    if (trimmed.startsWith('(') || trimmed.startsWith(';') || trimmed.startsWith('%')) continue;
-    if (trimmed.indexOf('G90') >= 0 && trimmed.indexOf('G90.1') < 0) isAbsolute = true;
-    if (trimmed.indexOf('G91') >= 0 && trimmed.indexOf('G91.1') < 0) isAbsolute = false;
-    if (trimmed.indexOf('G53') >= 0) continue;
-    var xM = trimmed.match(/X([+-]?\d*\.?\d+)/);
-    var yM = trimmed.match(/Y([+-]?\d*\.?\d+)/);
-    var zM = trimmed.match(/Z([+-]?\d*\.?\d+)/);
-    if (xM) { var v = parseFloat(xM[1]); currentX = isAbsolute ? v : currentX + v; }
-    if (yM) { var v2 = parseFloat(yM[1]); currentY = isAbsolute ? v2 : currentY + v2; }
-    if (zM) { var v3 = parseFloat(zM[1]); currentZ = isAbsolute ? v3 : currentZ + v3; }
-    if (xM || yM || zM) {
-      bounds.min.x = Math.min(bounds.min.x, currentX);
-      bounds.min.y = Math.min(bounds.min.y, currentY);
-      bounds.min.z = Math.min(bounds.min.z, currentZ);
-      bounds.max.x = Math.max(bounds.max.x, currentX);
-      bounds.max.y = Math.max(bounds.max.y, currentY);
-      bounds.max.z = Math.max(bounds.max.z, currentZ);
+  applyLog('Analyzing loaded G-code bounds...');
+  try {
+    // Client-side bounds analysis (same algorithm as server)
+    var bounds = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
+    var currentX = 0, currentY = 0, currentZ = 0;
+    var isAbsolute = true;
+    var lines = applyOriginalGcode.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var trimmed = lines[i].trim().toUpperCase();
+      if (trimmed.startsWith('(') || trimmed.startsWith(';') || trimmed.startsWith('%')) continue;
+      if (trimmed.indexOf('G90') >= 0 && trimmed.indexOf('G90.1') < 0) isAbsolute = true;
+      if (trimmed.indexOf('G91') >= 0 && trimmed.indexOf('G91.1') < 0) isAbsolute = false;
+      if (trimmed.indexOf('G53') >= 0) continue;
+      var xM = trimmed.match(/X([+-]?\d*\.?\d+)/);
+      var yM = trimmed.match(/Y([+-]?\d*\.?\d+)/);
+      var zM = trimmed.match(/Z([+-]?\d*\.?\d+)/);
+      if (xM) { var v = parseFloat(xM[1]); currentX = isAbsolute ? v : currentX + v; }
+      if (yM) { var v2 = parseFloat(yM[1]); currentY = isAbsolute ? v2 : currentY + v2; }
+      if (zM) { var v3 = parseFloat(zM[1]); currentZ = isAbsolute ? v3 : currentZ + v3; }
+      if (xM || yM || zM) {
+        bounds.min.x = Math.min(bounds.min.x, currentX);
+        bounds.min.y = Math.min(bounds.min.y, currentY);
+        bounds.min.z = Math.min(bounds.min.z, currentZ);
+        bounds.max.x = Math.max(bounds.max.x, currentX);
+        bounds.max.y = Math.max(bounds.max.y, currentY);
+        bounds.max.z = Math.max(bounds.max.z, currentZ);
+      }
     }
-  }
-  if (bounds.min.x === Infinity) bounds.min.x = 0;
-  if (bounds.min.y === Infinity) bounds.min.y = 0;
-  if (bounds.min.z === Infinity) bounds.min.z = 0;
-  if (bounds.max.x === -Infinity) bounds.max.x = 0;
-  if (bounds.max.y === -Infinity) bounds.max.y = 0;
-  if (bounds.max.z === -Infinity) bounds.max.z = 0;
+    if (bounds.min.x === Infinity) bounds.min.x = 0;
+    if (bounds.min.y === Infinity) bounds.min.y = 0;
+    if (bounds.min.z === Infinity) bounds.min.z = 0;
+    if (bounds.max.x === -Infinity) bounds.max.x = 0;
+    if (bounds.max.y === -Infinity) bounds.max.y = 0;
+    if (bounds.max.z === -Infinity) bounds.max.z = 0;
 
-  if (boundsEl) {
-    boundsEl.style.display = 'block';
-    boundsEl.innerHTML = '<strong>G-code Bounds:</strong> ' +
-      'X: ' + bounds.min.x.toFixed(2) + ' to ' + bounds.max.x.toFixed(2) +
-      ' &nbsp;|&nbsp; Y: ' + bounds.min.y.toFixed(2) + ' to ' + bounds.max.y.toFixed(2) +
-      ' &nbsp;|&nbsp; Z: ' + bounds.min.z.toFixed(2) + ' to ' + bounds.max.z.toFixed(2) +
-      ' &nbsp;|&nbsp; Size: ' + (bounds.max.x - bounds.min.x).toFixed(2) + ' &times; ' + (bounds.max.y - bounds.min.y).toFixed(2) + ' coords';
+    if (boundsEl) {
+      boundsEl.style.display = 'block';
+      boundsEl.innerHTML = '<strong>G-code Bounds:</strong> ' +
+        'X: ' + bounds.min.x.toFixed(2) + ' to ' + bounds.max.x.toFixed(2) +
+        ' &nbsp;|&nbsp; Y: ' + bounds.min.y.toFixed(2) + ' to ' + bounds.max.y.toFixed(2) +
+        ' &nbsp;|&nbsp; Z: ' + bounds.min.z.toFixed(2) + ' to ' + bounds.max.z.toFixed(2) +
+        ' &nbsp;|&nbsp; Size: ' + (bounds.max.x - bounds.min.x).toFixed(2) + ' &times; ' + (bounds.max.y - bounds.min.y).toFixed(2) + ' coords';
+    }
+    applyLog('Bounds analysis complete: X ' + bounds.min.x.toFixed(2) + ' to ' + bounds.max.x.toFixed(2) +
+      ', Y ' + bounds.min.y.toFixed(2) + ' to ' + bounds.max.y.toFixed(2) +
+      ', Z ' + bounds.min.z.toFixed(2) + ' to ' + bounds.max.z.toFixed(2));
+  } catch (e) {
+    applyLog('ERROR analyzing G-code bounds: ' + e.message);
+    throw e;
   }
 }
 
@@ -987,6 +1005,8 @@ function applyServerSurfaceCompensation() {
   var surfLogEl = document.getElementById('apply-surface-log');
   if (surfLogEl) surfLogEl.innerHTML = '';
 
+  applyLog('Starting surface compensation: refZ=' + refZ + ', subdivide=' + subdivide +
+    ', mesh=' + smGridConfig.colCount + 'x' + smGridConfig.rowCount);
   applyLogSurface('Applying surface Z compensation (Reference Z=' + refZ + ', Subdivide=' + subdivide + ')...');
 
   if (subdivide) {
@@ -995,11 +1015,13 @@ function applyServerSurfaceCompensation() {
       var result = applySubdividedCompensation(applyOriginalGcode, smMeshData, smGridConfig, refZ);
       applySurfaceCompGcode = result.gcode;
       applyLogSurface('Done! ' + result.modified + ' moves processed, ' + result.segments + ' segments generated.');
+      applyLog('Surface compensation complete: ' + result.modified + ' moves processed, ' + result.segments + ' segments generated.');
       if (statusEl) { statusEl.textContent = 'Compensation applied: ' + result.modified + ' moves, ' + result.segments + ' segments (subdivided).'; statusEl.className = 'status-line good'; }
       applyUpdatePreview(applySurfaceCompGcode);
       applyUpdateButtons();
     } catch(e) {
       applyLogSurface('ERROR: ' + e.message);
+      applyLog('ERROR during surface compensation: ' + e.message);
       if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status-line bad'; }
     }
   } else {
@@ -1008,11 +1030,13 @@ function applyServerSurfaceCompensation() {
       var result = smApplyCompensationCore(applyOriginalGcode, smMeshData, smGridConfig, refZ);
       applySurfaceCompGcode = result.gcode;
       applyLogSurface('Done! ' + result.modified + ' Z values modified.');
+      applyLog('Surface compensation complete: ' + result.modified + ' Z values modified.');
       if (statusEl) { statusEl.textContent = 'Compensation applied: ' + result.modified + ' Z values modified.'; statusEl.className = 'status-line good'; }
       applyUpdatePreview(applySurfaceCompGcode);
       applyUpdateButtons();
     } catch(e) {
       applyLogSurface('ERROR: ' + e.message);
+      applyLog('ERROR during surface compensation: ' + e.message);
       if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status-line bad'; }
     }
   }
@@ -1228,6 +1252,8 @@ function applyFaceCompensationFromTab() {
     }
   }
 
+  applyLog('Starting face compensation: axis=' + axis + ', refPos=' + refPos + ', uniform=' + uniformOffset +
+    ', meshPoints=' + faceData.length);
   applyLogFace('Applying face compensation (axis=' + axis + ', refPos=' + refPos + ', uniform=' + uniformOffset + ')...');
 
   try {
@@ -1237,11 +1263,13 @@ function applyFaceCompensationFromTab() {
     var result = faceApplyCompensationCore(applyOriginalGcode, faceData, refPos, axis, uniformOffset);
     applyFaceCompGcode = result.gcode;
     applyLogFace('Done! ' + result.modified + ' ' + axis + ' values adjusted, ' + (result.segments || 0) + ' segments generated.');
+    applyLog('Face compensation complete: ' + result.modified + ' ' + axis + ' values adjusted, ' + (result.segments || 0) + ' segments generated.');
     if (statusEl) { statusEl.textContent = 'Face compensation applied: ' + result.modified + ' values adjusted, ' + (result.segments || 0) + ' segments.'; statusEl.className = 'status-line good'; }
     applyUpdatePreview(applyFaceCompGcode);
     applyUpdateButtons();
   } catch(e) {
     applyLogFace('ERROR: ' + e.message);
+    applyLog('ERROR during face compensation: ' + e.message);
     if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.className = 'status-line bad'; }
   }
 }
@@ -1622,4 +1650,3 @@ function clearCombinedMesh() {
   var statusEl = document.getElementById('comb-meshStorageStatus');
   if (statusEl) statusEl.textContent = 'Combined data cleared.';
 }
-

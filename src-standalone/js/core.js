@@ -1815,11 +1815,13 @@ function bindProbeDimensionUI(){
       var reader = new FileReader();
       reader.onload = function(ev) {
         applyOriginalGcode = ev.target.result;
+        var lineCount = applyOriginalGcode.split('\n').length;
         var statusEl = document.getElementById('apply-gcode-status');
         if (statusEl) {
-          statusEl.textContent = 'Loaded: ' + file.name + ' (' + applyOriginalGcode.split('\n').length + ' lines)';
+          statusEl.textContent = 'Loaded: ' + file.name + ' (' + lineCount + ' lines)';
           statusEl.className = 'status-line good';
         }
+        if (typeof applyLog === 'function') applyLog('Loaded G-code file: ' + file.name + ' (' + lineCount + ' lines)');
         applyUpdateButtons();
       };
       reader.readAsText(file);
@@ -1907,5 +1909,4 @@ function pluginCleanupOnClose() {
 // which can clear the controller's homed state even when the user only
 // closed the UI panel after successfully unlocking with $X.
 // Cleanup is triggered explicitly by the plugin host via index.js onUnload.
-
 
