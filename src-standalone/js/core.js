@@ -1162,25 +1162,39 @@ function _parsePos(str){
 }
 
 async function getWorkPosition(){
-  var state = await _getState();
-  var ms = _machineStateFrom(state);
-  var status = ms.status || 'Unknown';
-  var probeTriggered = (ms.Pn || '').indexOf('P') >= 0;
-  var w = _parsePos(ms.WPos);
-  if(w) return {x:w.x, y:w.y, z:w.z, status: status, probeTriggered: probeTriggered};
-  var m = _parsePos(ms.MPos), wco = _parsePos(ms.WCO);
-  if(m && wco) return {x:m.x-wco.x, y:m.y-wco.y, z:m.z-wco.z, status: status, probeTriggered: probeTriggered};
-  if(m) return {x:m.x, y:m.y, z:m.z, status: status, probeTriggered: probeTriggered};
-  var wp = _parsePos(ms.workPosition || ms.position || ms.pos || null);
-  if(wp) return {x:wp.x, y:wp.y, z:wp.z, status: status, probeTriggered: probeTriggered};
-  if(ms.x != null && ms.y != null && ms.z != null){
-    var xVal = parseFloat(ms.x), yVal = parseFloat(ms.y), zVal = parseFloat(ms.z);
-    if(!isNaN(xVal) && !isNaN(yVal) && !isNaN(zVal)) return {x:xVal, y:yVal, z:zVal, status: status, probeTriggered: probeTriggered};
+  var lastErr;
+  for (var _attempt = 0; _attempt < 3; _attempt++) {
+    if (_attempt > 0) {
+      pluginDebug('getWorkPosition: retry ' + _attempt + '/2 after 500ms (previous attempt returned no position)');
+      await sleep(500);
+    }
+    try {
+      var state = await _getState();
+      var ms = _machineStateFrom(state);
+      var status = ms.status || 'Unknown';
+      var probeTriggered = (ms.Pn || '').indexOf('P') >= 0;
+      var w = _parsePos(ms.WPos);
+      if(w) return {x:w.x, y:w.y, z:w.z, status: status, probeTriggered: probeTriggered};
+      var m = _parsePos(ms.MPos), wco = _parsePos(ms.WCO);
+      if(m && wco) return {x:m.x-wco.x, y:m.y-wco.y, z:m.z-wco.z, status: status, probeTriggered: probeTriggered};
+      if(m) return {x:m.x, y:m.y, z:m.z, status: status, probeTriggered: probeTriggered};
+      var wp = _parsePos(ms.workPosition || ms.position || ms.pos || null);
+      if(wp) return {x:wp.x, y:wp.y, z:wp.z, status: status, probeTriggered: probeTriggered};
+      if(ms.x != null && ms.y != null && ms.z != null){
+        var xVal = parseFloat(ms.x), yVal = parseFloat(ms.y), zVal = parseFloat(ms.z);
+        if(!isNaN(xVal) && !isNaN(yVal) && !isNaN(zVal)) return {x:xVal, y:yVal, z:zVal, status: status, probeTriggered: probeTriggered};
+      }
+      var rootW = _parsePos(state.wpos || state.WPos || state.workPos || null);
+      if(rootW) return {x:rootW.x, y:rootW.y, z:rootW.z, status: status, probeTriggered: probeTriggered};
+      lastErr = new Error('Could not read current position from Sender');
+      pluginDebug('getWorkPosition attempt ' + (_attempt+1) + ': no position data. ms keys=' + Object.keys(ms).join(','));
+    } catch(e) {
+      lastErr = e;
+      pluginDebug('getWorkPosition attempt ' + (_attempt+1) + ' error: ' + e.message);
+    }
   }
-  var rootW = _parsePos(state.wpos || state.WPos || state.workPos || null);
-  if(rootW) return {x:rootW.x, y:rootW.y, z:rootW.z, status: status, probeTriggered: probeTriggered};
-  pluginDebug('getWorkPosition FAIL: attempted fields=WPos,MPos+WCO,MPos,workPosition/position/pos,x/y/z,state.wpos/WPos/workPos; available ms keys=' + Object.keys(ms || {}).join(',') + ' state keys=' + Object.keys(state || {}).join(','));
-  throw new Error('Could not read current position from Sender');
+  pluginDebug('getWorkPosition FAILED after 3 attempts');
+  throw lastErr || new Error('Could not read current position from Sender');
 }
 
 async function waitForIdle(fastPoll){

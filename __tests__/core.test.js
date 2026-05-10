@@ -180,20 +180,78 @@ describe('Core Module', () => {
       const parsePosSource = extractFunctionSource(coreJs, '_parsePos', false);
       const getWorkPositionSource = extractFunctionSource(coreJs, 'getWorkPosition', true);
       const parsePos = new Function(`return (${parsePosSource});`)();
+      const noopSleep = () => Promise.resolve();
       const getWorkPositionFactory = new Function(
         '_getState',
         '_machineStateFrom',
         '_parsePos',
         'pluginDebug',
+        'sleep',
         `return (${getWorkPositionSource});`
       );
       const getWorkPosition = getWorkPositionFactory(
         async () => ({ machineState: { status: 'Idle', workPosition: { x: '5', y: 6, z: 7 } } }),
         (state) => state.machineState || {},
         parsePos,
-        () => {}
+        () => {},
+        noopSleep
       );
       return expect(getWorkPosition()).resolves.toMatchObject({ x: 5, y: 6, z: 7, status: 'Idle' });
+    });
+
+    test('should retry getWorkPosition up to 3 times when position is null', async () => {
+      const parsePosSource = extractFunctionSource(coreJs, '_parsePos', false);
+      const getWorkPositionSource = extractFunctionSource(coreJs, 'getWorkPosition', true);
+      const parsePos = new Function(`return (${parsePosSource});`)();
+      const noopSleep = () => Promise.resolve();
+      const getWorkPositionFactory = new Function(
+        '_getState',
+        '_machineStateFrom',
+        '_parsePos',
+        'pluginDebug',
+        'sleep',
+        `return (${getWorkPositionSource});`
+      );
+
+      // First two attempts return no position, third returns WPos
+      let callCount = 0;
+      const getWorkPosition = getWorkPositionFactory(
+        async () => {
+          callCount += 1;
+          if (callCount < 3) return { machineState: { status: 'Idle' } };
+          return { machineState: { status: 'Idle', WPos: '10.000,20.000,30.000' } };
+        },
+        (state) => state.machineState || {},
+        parsePos,
+        () => {},
+        noopSleep
+      );
+      const result = await getWorkPosition();
+      expect(callCount).toBe(3);
+      expect(result).toMatchObject({ x: 10, y: 20, z: 30, status: 'Idle' });
+    });
+
+    test('should throw after 3 failed getWorkPosition attempts', async () => {
+      const getWorkPositionSource = extractFunctionSource(coreJs, 'getWorkPosition', true);
+      const parsePosSource = extractFunctionSource(coreJs, '_parsePos', false);
+      const parsePos = new Function(`return (${parsePosSource});`)();
+      const noopSleep = () => Promise.resolve();
+      const getWorkPositionFactory = new Function(
+        '_getState',
+        '_machineStateFrom',
+        '_parsePos',
+        'pluginDebug',
+        'sleep',
+        `return (${getWorkPositionSource});`
+      );
+      const getWorkPosition = getWorkPositionFactory(
+        async () => ({ machineState: { status: 'Idle' } }),
+        (state) => state.machineState || {},
+        parsePos,
+        () => {},
+        noopSleep
+      );
+      await expect(getWorkPosition()).rejects.toThrow('Could not read current position from Sender');
     });
 
     test('should tolerate alternate machine position fields in getMachineSnapshot', () => {
