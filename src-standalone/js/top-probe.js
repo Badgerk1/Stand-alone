@@ -166,9 +166,24 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
 
   // Get current position to calculate absolute clearance Z target
   var currentPos = await getWorkPosition();
-  var targetClearanceZ = currentPos.z + Math.max(5, clearanceZ);
+  var requestedClearanceZ = currentPos.z + Math.max(5, clearanceZ);
 
-  smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+  // CRITICAL: Check if we're at or near machine ceiling to avoid ALARM:2 soft limit.
+  // When at machine Z=0 (ceiling), attempting to lift Z higher will trigger soft limit alarm.
+  var snap = await getMachineSnapshot();
+  var atMachineCeiling = (snap.machineZ != null && snap.machineZ >= -0.5 && snap.machineZ <= 0.5);
+
+  var targetClearanceZ;
+  if (atMachineCeiling) {
+    // Already at ceiling — skip Z lift entirely, proceed with lateral move at current Z.
+    // This is safe because runOutlineSurfaceProbe() retracts to machine Z=0 before calling us.
+    targetClearanceZ = currentPos.z;
+    smLogProbe('TRAVEL: at machine ceiling (machineZ=' + snap.machineZ.toFixed(3) + '), skipping Z lift, moving laterally at current Z=' + currentPos.z.toFixed(3) + ' to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+    pluginDebug('smSafeLateralMove: at ceiling, skipping lift');
+  } else {
+    targetClearanceZ = requestedClearanceZ;
+    smLogProbe('TRAVEL: lifting Z to absolute clearance ' + targetClearanceZ.toFixed(3) + ' (current=' + currentPos.z.toFixed(3) + '), then moving to X' + targetX.toFixed(3) + ' Y' + targetY.toFixed(3));
+  }
 
   // Move a single axis to target using one full-distance G38.3 command.
   // If the probe triggers mid-move (stopped short), back off opposite to travel direction,
@@ -224,16 +239,21 @@ async function smSafeLateralMove(targetX, targetY, travelFeed, clearanceZ) {
   // Lift Z to absolute clearance height before lateral travel.
   // Using absolute positioning (G90) prevents accumulated Z drift that would cause
   // soft limit alarms (ALARM:4) after multiple probe points.
-  var liftCmd = 'G90 G1 Z' + targetClearanceZ.toFixed(3) + ' F' + travelFeed;
-  smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: sending command: ' + liftCmd);
-  pluginDebug('smSafeLateralMove: Z-lift cmd: ' + liftCmd);
-  var _zLiftStart = _smTimingEnabled ? Date.now() : 0;
-  await sendCommand(liftCmd);
-  await sleep(20); // Brief delay to ensure controller starts processing
-  smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: waiting for idle after Z lift...');
-  await waitForIdleWithTimeout();
-  smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: idle confirmed after Z lift');
-  if (_smTimingEnabled && smTimingStats) { smTimingStats.zLift.totalMs += Date.now() - _zLiftStart; smTimingStats.zLift.count++; }
+  // Skip lift if already at machine ceiling to prevent ALARM:2.
+  if (!atMachineCeiling && targetClearanceZ !== currentPos.z) {
+    var liftCmd = 'G90 G1 Z' + targetClearanceZ.toFixed(3) + ' F' + travelFeed;
+    smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: sending command: ' + liftCmd);
+    pluginDebug('smSafeLateralMove: Z-lift cmd: ' + liftCmd);
+    var _zLiftStart = _smTimingEnabled ? Date.now() : 0;
+    await sendCommand(liftCmd);
+    await sleep(20); // Brief delay to ensure controller starts processing
+    smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: waiting for idle after Z lift...');
+    await waitForIdleWithTimeout();
+    smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: idle confirmed after Z lift');
+    if (_smTimingEnabled && smTimingStats) { smTimingStats.zLift.totalMs += Date.now() - _zLiftStart; smTimingStats.zLift.count++; }
+  } else {
+    smLogProbe('[PLUGIN DEBUG] smSafeLateralMove: skipping Z lift (at ceiling or already at target Z)');
+  }
 
   await moveAxis('X', targetX);
   await moveAxis('Y', targetY);
