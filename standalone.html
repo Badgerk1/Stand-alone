@@ -17097,13 +17097,16 @@ async function toolChangeMoveToReference() {
     // within travel limits regardless of the current WCO offset.
     if (machineSafeZ !== null) {
       await sendCommand('G53 G1 Z' + machineSafeZ.toFixed(3) + ' F' + retractFeed.toFixed(0));
+      await sleep(50);
+      await _waitForIdleOrStop(10000);
     } else {
       // Fallback: relative lift when machineSafeTopZ is not configured
-      await sendCommand('G91 G1 Z5 F' + retractFeed.toFixed(0));
+      await sendCommand('G91 G1 Z10 F' + retractFeed.toFixed(0));
+      await sleep(100);
+      await _waitForIdleOrStop(15000);
+      await sendCommand('G90');  // Restore absolute mode
     }
-    await sleep(50);
-    await _waitForIdleOrStop(10000);
-    // Restore absolute work-coordinate mode for XY travel
+    // Ensure absolute work-coordinate mode for XY travel
     await sendCommand('G90');
     await sleep(20);
 
@@ -17182,13 +17185,16 @@ async function toolChangeReturnAndReZero() {
     // within travel limits regardless of the current WCO offset.
     if (machineSafeZ !== null) {
       await sendCommand('G53 G1 Z' + machineSafeZ.toFixed(3) + ' F' + retractFeed.toFixed(0));
+      await sleep(50);
+      await _waitForIdleOrStop(10000);
     } else {
       // Fallback: relative lift when machineSafeTopZ is not configured
-      await sendCommand('G91 G1 Z5 F' + retractFeed.toFixed(0));
+      await sendCommand('G91 G1 Z10 F' + retractFeed.toFixed(0));
+      await sleep(100);
+      await _waitForIdleOrStop(15000);
+      await sendCommand('G90');  // Restore absolute mode
     }
-    await sleep(50);
-    await _waitForIdleOrStop(10000);
-    // Restore absolute work-coordinate mode for XY travel
+    // Ensure absolute work-coordinate mode for XY travel
     await sendCommand('G90');
     await sleep(20);
 
