@@ -209,7 +209,7 @@ describe('Core Module', () => {
       expect(versionMatch).not.toBeNull();
 
       const version = versionMatch[1];
-      expect(version).toMatch(/^V\d+\.\d+$/); // Format: V21.0
+      expect(version).toMatch(/^(V\d+\.\d+|Beta V\d+)$/); // Format: V21.0 or Beta V1
     });
   });
 });
