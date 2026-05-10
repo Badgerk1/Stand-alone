@@ -62,6 +62,7 @@ describe('Apply tab logging and tool-change depth wiring', () => {
       console,
       alert: jest.fn(),
       confirm: (msg) => { confirmMessage = msg; return true; },
+      applyLog: jest.fn(),
       pluginDebug: jest.fn(),
       setFooterStatus: jest.fn(),
       getSettingsFromUI: () => ({ probeFeed: 100, travelFeedRate: 600, machineSafeTopZ: 160 }),

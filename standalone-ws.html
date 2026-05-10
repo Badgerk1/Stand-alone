@@ -17164,6 +17164,10 @@ async function toolChangeReturnAndReZero() {
     // Preflight: abort if controller is in ALARM, machine is not homed, or probe is triggered
     await requireStartupHomingPreflight('tool change return & re-zero');
 
+    applyLog('=== Return & Re-Zero Z Started ===');
+    applyLog('Reference Position: X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3) + ' Z' + _toolChangeRefPos.z.toFixed(3));
+    applyLog('Surface search: ' + probeSettings.depthSummary);
+
     if (statusEl) {
       statusEl.textContent = probeSettings.depthSummary;
       statusEl.className = 'status-line';
@@ -17184,10 +17188,12 @@ async function toolChangeReturnAndReZero() {
     // ALARM:2.  G53 overrides the active WCS for this one block, so the move is always
     // within travel limits regardless of the current WCO offset.
     if (machineSafeZ !== null) {
+      applyLog('Raising Z to machine safe height: Z' + machineSafeZ.toFixed(3) + ' (machine coords)');
       await sendCommand('G53 G1 Z' + machineSafeZ.toFixed(3) + ' F' + retractFeed.toFixed(0));
       await sleep(50);
       await _waitForIdleOrStop(10000);
     } else {
+      applyLog('Raising Z by 10mm (relative lift - no machineSafeTopZ configured)');
       // Fallback: relative lift when machineSafeTopZ is not configured
       await sendCommand('G91 G1 Z10 F' + retractFeed.toFixed(0));
       await sleep(100);
@@ -17201,11 +17207,13 @@ async function toolChangeReturnAndReZero() {
     setFooterStatus('Moving to XY reference...', 'ok');
 
     // Step 2: Move to XY reference position
+    applyLog('Moving to XY reference: X' + _toolChangeRefPos.x.toFixed(3) + ' Y' + _toolChangeRefPos.y.toFixed(3));
     await sendCommand('G0 X' + _toolChangeRefPos.x.toFixed(3) +
                      ' Y' + _toolChangeRefPos.y.toFixed(3) +
                      ' F' + retractFeed.toFixed(0));
     await sleep(50);
     await _waitForIdleOrStop(15000);
+    applyLog('Arrived at XY reference position');
 
     if (statusEl) {
       statusEl.textContent = 'At reference position, probing surface to set Z0...';
@@ -17220,30 +17228,28 @@ async function toolChangeReturnAndReZero() {
 
     // Ensure probe is not triggered before plunge
     var preSnap = await getMachineSnapshot();
+    applyLog('PROBE PIN STATE: triggered=' + preSnap.probeTriggered + ' before Z probe');
     if (preSnap.probeTriggered) {
       throw new Error('Probe is already triggered. Clear probe before re-zeroing Z.');
     }
 
     // Probe down
+    applyLog('PROBE: G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed.toFixed(0) + ' (probing to find surface for Z0)');
     await sendCommand('G91');  // Relative mode
     await sleep(20);
     await sendCommand('G38.2 Z-' + maxPlunge.toFixed(3) + ' F' + probeFeed.toFixed(0));
     await sleep(100);
     await _waitForIdleOrStop(20000);
+    applyLog('PROBE: completed, switching to absolute mode');
     // Restore absolute mode immediately after probe completes to clear any error state
     // (matches pattern in smPlungeProbe - G90 must be sent before probe validation to
     // ensure retraction can execute even if probe errors occur)
     await sendCommand('G90');  // Back to absolute mode
     await sleep(20);
 
-    // Check probe triggered
-    var postSnap = await getMachineSnapshot();
-    if (!postSnap.probeTriggered) {
-      throw new Error('Probe did not trigger. Check probe connection and surface height.');
-    }
-
-    // Step 4: Retract slightly BEFORE setting Z0 to ensure probe clears surface
-    // This prevents issues if Z0 setting fails or errors occur
+    // Step 4: Retract 2mm immediately after probe to clear the probe pin
+    // This MUST happen before checking probe status to allow the probe pin to physically clear
+    applyLog('RETRACT: Z +2mm to clear probe pin');
     await sendCommand('G91');
     await sleep(20);
     await sendCommand('G0 Z2 F' + (cfg.travelFeedRate || 1200));
@@ -17252,14 +17258,24 @@ async function toolChangeReturnAndReZero() {
     await sendCommand('G90');
     await sleep(20);
 
+    // Check probe triggered AFTER retraction so probe pin has time to clear
+    var postSnap = await getMachineSnapshot();
+    applyLog('PROBE RESULT: triggered=' + postSnap.probeTriggered + ' after retraction');
+    if (!postSnap.probeTriggered) {
+      throw new Error('Probe did not trigger. Check probe connection and surface height.');
+    }
+
     // Step 5: Set Z0 at 2mm above contact (account for retraction)
     // We retracted 2mm, so set Z to 2.0 to make the contact point Z=0
+    applyLog('Setting Z0 at contact point (G10 L20 P0 Z2.0)');
     await sendCommand('G10 L20 P0 Z2.0');
     await sleep(100);
 
     _toolChangeZReZeroed = true;
     _toolChangeUpdateUI();
 
+    applyLog('Z0 successfully established at reference position!');
+    applyLog('=== Return & Re-Zero Z Complete ===');
     if (statusEl) {
       statusEl.textContent = 'Z0 successfully established at reference position!';
       statusEl.className = 'status-line good';
@@ -17270,6 +17286,8 @@ async function toolChangeReturnAndReZero() {
     _toolChangeUpdateWorkflowStep(4, true);
 
   } catch (e) {
+    applyLog('ERROR: ' + e.message);
+    applyLog('=== Return & Re-Zero Z Failed ===');
     if (statusEl) {
       statusEl.textContent = 'Error: ' + e.message;
       statusEl.className = 'status-line bad';
